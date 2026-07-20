@@ -28,7 +28,17 @@
   #crumb{display:flex; align-items:center; gap:8px; padding:6px 14px 0; min-height:32px;}
   #back{display:none;}
   #title{font-size:12.5px; color:var(--dim);}
-  #chart{width:100%; height:70vh; min-height:430px;}
+  #chart{width:100%; height:62vh; min-height:400px;}
+  #list{padding:2px 14px 8px;}
+  .li{display:flex; align-items:center; gap:8px; padding:7px 2px;
+      border-bottom:1px solid #1a222c; font-size:13px;}
+  .li .no{min-width:26px; text-align:right; color:var(--dim); font-variant-numeric:tabular-nums;}
+  .li .dot{width:11px; height:11px; border-radius:50%; flex:none;}
+  .li .nm{flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
+  .li .sec{color:var(--dim); font-size:11px;}
+  .li .val{font-variant-numeric:tabular-nums; font-size:12px; text-align:right; min-width:110px;}
+  .li .val b{font-weight:600;}
+  .pos{color:#3ddc84;} .neg{color:#ff5d73;}
   footer{padding:4px 14px 16px; font-size:10.5px; color:var(--dim); line-height:1.6;}
 </style>
 </head>
@@ -43,6 +53,7 @@
   <span id="title"></span>
 </div>
 <div id="chart"></div>
+<div id="list"></div>
 <footer>
   横軸:【長期】3ヶ月リターン ／ 縦軸:【短期】5日リターン（対数風スケール・表示中の銘柄に自動ズーム）。
   リーダー: 3ヶ月≥+5%かつ5日≥+1% ／ 押し目買い: 3ヶ月≥+5%かつ5日≤-1% ／ 弱→反発: 3ヶ月≤-5%かつ5日≥+1%。
@@ -142,17 +153,17 @@ function makeLayout(xr, yr, xt, yt, dateStamp){
     margin:{l:48, r:12, t:8, b:46},
     xaxis:{title:{text:"【長期】3ヶ月リターン",font:{size:12,color:"#7f8ea0"}},
            range:xr, tickvals:xt.vals, ticktext:xt.text, zeroline:false,
-           gridcolor:"#1b232d", tickfont:{size:11,color:"#7f8ea0"}, fixedrange:true},
+           gridcolor:"#1b232d", tickfont:{size:11,color:"#7f8ea0"}, fixedrange:false},
     yaxis:{title:{text:"【短期】5日リターン",font:{size:12,color:"#7f8ea0"}},
            range:yr, tickvals:yt.vals, ticktext:yt.text, zeroline:false,
-           gridcolor:"#1b232d", tickfont:{size:11,color:"#7f8ea0"}, fixedrange:true},
+           gridcolor:"#1b232d", tickfont:{size:11,color:"#7f8ea0"}, fixedrange:false},
     shapes, annotations:ql,
-    showlegend:false, dragmode:false, hoverlabel:{font:{size:13}},
+    showlegend:false, dragmode:"pan", hoverlabel:{font:{size:13}},
   };
 }
 
 const chart = document.getElementById("chart");
-const config = {displayModeBar:false, responsive:true, scrollZoom:false};
+const config = {displayModeBar:false, responsive:true, scrollZoom:true, doubleClick:"reset"};
 const $ = id => document.getElementById(id);
 
 function sectorColor(snap, name){
@@ -182,6 +193,7 @@ function render(){
     }];
     titleText = "業種をタップすると個別銘柄を表示";
     $("back").style.display = "none";
+    $("list").innerHTML = "";
     Plotly.react(chart, traces, makeLayout(xt.range, yt.range, xt, yt, snap.asof), config);
   }else{
     let rows;
@@ -198,23 +210,29 @@ function render(){
     }
     if(rows.length === 0){
       titleText += "（該当なし）";
+      $("list").innerHTML = "";
       Plotly.react(chart, [], makeLayout([-1,1],[-1,1],
         {vals:[],text:[]},{vals:[],text:[]}, snap.asof), config);
       $("title").textContent = titleText; updateButtons(); return;
     }
+    rows = rows.slice().sort((a,b)=>
+      (Math.abs(b.r3m)+Math.abs(b.r5)*3)-(Math.abs(a.r3m)+Math.abs(a.r5)*3));
     const xt = fitRange(rows,"x"), yt = fitRange(rows,"y");
     traces = [{
       type:"scatter", mode:"markers+text",
       x:rows.map(d=>d.x), y:rows.map(d=>d.y),
-      text:stockLabels(rows, xt.range, yt.range),
-      textposition:"top center", textfont:{size:10.5, color:"#c7d3de"},
-      marker:{size:11, opacity:0.9, line:{color:"#0d1117", width:1},
+      text:showAllLabels ? rows.map(d=>d.name) : rows.map((d,i)=>String(i+1)),
+      textposition:showAllLabels ? "top center" : "middle center",
+      textfont:{size:showAllLabels?10.5:9,
+                color:showAllLabels?"#c7d3de":"#0d1117"},
+      marker:{size:showAllLabels?11:15, opacity:0.92, line:{color:"#0d1117", width:1},
               color:rows.map(d=>sectorColor(snap, d.sector))},
-      customdata:rows.map(d=>[d.name, d.code, d.sector, d.r3m, d.r5]),
-      hovertemplate:"<b>%{customdata[0]}</b>（%{customdata[1]}・%{customdata[2]}）<br>"+
+      customdata:rows.map((d,i)=>[d.name, d.code, d.sector, d.r3m, d.r5, i+1]),
+      hovertemplate:"<b>%{customdata[5]}. %{customdata[0]}</b>（%{customdata[1]}・%{customdata[2]}）<br>"+
                     "3ヶ月: %{customdata[3]}%　5日: %{customdata[4]}%<extra></extra>",
     }];
     Plotly.react(chart, traces, makeLayout(xt.range, yt.range, xt, yt, snap.asof), config);
+    renderList(rows, snap);
   }
   $("title").textContent = titleText;
   updateButtons();
@@ -268,6 +286,19 @@ const lblBtn = document.createElement("button");
 lblBtn.className = "pill"; lblBtn.id = "lbl"; lblBtn.textContent = "ラベル";
 lblBtn.onclick = ()=>{ showAllLabels = !showAllLabels; render(); };
 $("filterrow").appendChild(lblBtn);
+
+function fmt(v){
+  const c = v>=0 ? "pos" : "neg";
+  return '<b class="'+c+'">'+(v>0?"+":"")+v.toFixed(1)+'%</b>';
+}
+function renderList(rows, snap){
+  $("list").innerHTML = rows.map((d,i)=>
+    '<div class="li"><span class="no">'+(i+1)+'</span>'+
+    '<span class="dot" style="background:'+sectorColor(snap,d.sector)+'"></span>'+
+    '<span class="nm">'+d.name+' <span class="sec">'+d.code+'・'+d.sector+'</span></span>'+
+    '<span class="val">3M '+fmt(d.r3m)+' / 5D '+fmt(d.r5)+'</span></div>'
+  ).join("");
+}
 
 $("back").onclick = ()=>{ drill=null; render(); };
 render();
