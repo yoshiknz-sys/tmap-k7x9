@@ -153,17 +153,17 @@ function makeLayout(xr, yr, xt, yt, dateStamp){
     margin:{l:48, r:12, t:8, b:46},
     xaxis:{title:{text:"【長期】3ヶ月リターン",font:{size:12,color:"#7f8ea0"}},
            range:xr, tickvals:xt.vals, ticktext:xt.text, zeroline:false,
-           gridcolor:"#1b232d", tickfont:{size:11,color:"#7f8ea0"}, fixedrange:false},
+           gridcolor:"#1b232d", tickfont:{size:11,color:"#7f8ea0"}, fixedrange:true},
     yaxis:{title:{text:"【短期】5日リターン",font:{size:12,color:"#7f8ea0"}},
            range:yr, tickvals:yt.vals, ticktext:yt.text, zeroline:false,
-           gridcolor:"#1b232d", tickfont:{size:11,color:"#7f8ea0"}, fixedrange:false},
+           gridcolor:"#1b232d", tickfont:{size:11,color:"#7f8ea0"}, fixedrange:true},
     shapes, annotations:ql,
-    showlegend:false, dragmode:"pan", hoverlabel:{font:{size:13}},
+    showlegend:false, dragmode:false, hoverlabel:{font:{size:13}},
   };
 }
 
 const chart = document.getElementById("chart");
-const config = {displayModeBar:false, responsive:true, scrollZoom:true, doubleClick:"reset"};
+const config = {displayModeBar:false, responsive:true, scrollZoom:false};
 const $ = id => document.getElementById(id);
 
 function sectorColor(snap, name){
@@ -177,24 +177,28 @@ function render(){
   let traces, titleText, pts;
 
   if(filter === "all" && drill === null){
-    const S = snap.sectors;
-    pts = S;
+    const S = snap.sectors.slice().sort((a,b)=>
+      (Math.abs(b.r3m)+Math.abs(b.r5)*3)-(Math.abs(a.r3m)+Math.abs(a.r5)*3));
     const xt = fitRange(S,"x"), yt = fitRange(S,"y");
     traces = [{
       type:"scatter", mode:"markers+text",
       x:S.map(d=>d.x), y:S.map(d=>d.y),
-      text:thinSectorLabels(S, xt.range, yt.range),
-      textposition:"top center", textfont:{size:11.5, color:S.map(d=>d.color)},
-      marker:{size:S.map(d=>Math.max(12, 7+Math.sqrt(d.n)*3.4)),
-              color:S.map(d=>d.color), opacity:0.85, line:{color:"#0d1117", width:1.5}},
-      customdata:S.map(d=>[d.sector, d.n, d.r3m, d.r5]),
-      hovertemplate:"<b>%{customdata[0]}</b>（%{customdata[1]}銘柄）<br>"+
+      text:showAllLabels ? thinSectorLabels(S, xt.range, yt.range)
+                         : S.map((d,i)=>String(i+1)),
+      textposition:showAllLabels ? "top center" : "middle center",
+      textfont:showAllLabels
+        ? {size:11.5, color:S.map(d=>d.color)}
+        : {size:10, color:"#0d1117"},
+      marker:{size:S.map(d=>Math.max(16, 9+Math.sqrt(d.n)*3.4)),
+              color:S.map(d=>d.color), opacity:0.9, line:{color:"#0d1117", width:1.5}},
+      customdata:S.map((d,i)=>[d.sector, d.n, d.r3m, d.r5, i+1]),
+      hovertemplate:"<b>%{customdata[4]}. %{customdata[0]}</b>（%{customdata[1]}銘柄）<br>"+
                     "3ヶ月: %{customdata[2]}%　5日: %{customdata[3]}%<extra></extra>",
     }];
     titleText = "業種をタップすると個別銘柄を表示";
     $("back").style.display = "none";
-    $("list").innerHTML = "";
     Plotly.react(chart, traces, makeLayout(xt.range, yt.range, xt, yt, snap.asof), config);
+    renderSectorList(S, snap);
   }else{
     let rows;
     if(drill !== null){
@@ -290,6 +294,14 @@ $("filterrow").appendChild(lblBtn);
 function fmt(v){
   const c = v>=0 ? "pos" : "neg";
   return '<b class="'+c+'">'+(v>0?"+":"")+v.toFixed(1)+'%</b>';
+}
+function renderSectorList(S, snap){
+  $("list").innerHTML = S.map((d,i)=>
+    '<div class="li"><span class="no">'+(i+1)+'</span>'+
+    '<span class="dot" style="background:'+d.color+'"></span>'+
+    '<span class="nm">'+d.sector+' <span class="sec">'+d.n+'銘柄</span></span>'+
+    '<span class="val">3M '+fmt(d.r3m)+' / 5D '+fmt(d.r5)+'</span></div>'
+  ).join("");
 }
 function renderList(rows, snap){
   $("list").innerHTML = rows.map((d,i)=>
