@@ -39,6 +39,9 @@
   .li .val{font-variant-numeric:tabular-nums; font-size:12px; text-align:right; min-width:110px;}
   .li .val b{font-weight:600;}
   .pos{color:#3ddc84;} .neg{color:#ff5d73;}
+  .li.tap{cursor:pointer;}
+  .li.tap:active{background:#161f29;}
+  .li .arw{color:var(--dim); font-size:16px; padding-left:2px;}
   footer{padding:4px 14px 16px; font-size:10.5px; color:var(--dim); line-height:1.6;}
 </style>
 </head>
@@ -48,6 +51,9 @@
 </header>
 <div class="btnrow" id="timerow"></div>
 <div class="btnrow" id="filterrow"></div>
+<div class="btnrow" id="sortrow">
+  <span style="font-size:11px;color:var(--dim);">並び替え:</span>
+</div>
 <div id="crumb">
   <button id="back" class="pill">← 業種一覧に戻る</button>
   <span id="title"></span>
@@ -77,6 +83,17 @@ let filter = "all";
 let drill = null;
 let playing = null;
 let showAllLabels = false;
+let sortKey = "mom";   // mom(勢い) | r3m | r5
+let sortDir = -1;      // -1:降順 1:昇順
+
+function scoreOf(d){
+  if(sortKey === "r3m") return d.r3m;
+  if(sortKey === "r5")  return d.r5;
+  return Math.abs(d.r3m) + Math.abs(d.r5)*3;   // 勢い
+}
+function sortRows(arr){
+  return arr.slice().sort((a,b)=>(scoreOf(a)-scoreOf(b))*sortDir*-1);
+}
 
 // ---- symlog目盛り候補 ----
 const TICK_CANDS = [-100,-50,-30,-20,-15,-10,-5,-3,-2,-1,0,1,2,3,5,10,15,20,30,50,100];
@@ -177,8 +194,7 @@ function render(){
   let traces, titleText, pts;
 
   if(filter === "all" && drill === null){
-    const S = snap.sectors.slice().sort((a,b)=>
-      (Math.abs(b.r3m)+Math.abs(b.r5)*3)-(Math.abs(a.r3m)+Math.abs(a.r5)*3));
+    const S = sortRows(snap.sectors);
     const xt = fitRange(S,"x"), yt = fitRange(S,"y");
     traces = [{
       type:"scatter", mode:"markers+text",
@@ -219,8 +235,7 @@ function render(){
         {vals:[],text:[]},{vals:[],text:[]}, snap.asof), config);
       $("title").textContent = titleText; updateButtons(); return;
     }
-    rows = rows.slice().sort((a,b)=>
-      (Math.abs(b.r3m)+Math.abs(b.r5)*3)-(Math.abs(a.r3m)+Math.abs(a.r5)*3));
+    rows = sortRows(rows);
     const xt = fitRange(rows,"x"), yt = fitRange(rows,"y");
     traces = [{
       type:"scatter", mode:"markers+text",
@@ -254,6 +269,7 @@ function updateButtons(){
     b.classList.toggle("on", k===filter);
   });
   $("lbl").classList.toggle("on", showAllLabels);
+  updateSortButtons();
 }
 
 SNAPSHOTS.forEach((s,i)=>{
@@ -286,6 +302,26 @@ Object.keys(FILTERS).forEach(k=>{
   b.onclick = ()=>{ stopPlay(); filter=k; drill=null; render(); };
   $("filterrow").appendChild(b);
 });
+const SORT_DEFS = [["mom","勢い"],["r3m","3M"],["r5","5D"]];
+SORT_DEFS.forEach(([k,label])=>{
+  const b = document.createElement("button");
+  b.className = "pill s"; b.dataset.k = k;
+  b.onclick = ()=>{
+    stopPlay();
+    if(sortKey === k){ sortDir = -sortDir; } else { sortKey = k; sortDir = -1; }
+    render();
+  };
+  $("sortrow").appendChild(b);
+});
+function updateSortButtons(){
+  document.querySelectorAll("#sortrow .s").forEach(b=>{
+    const k = b.dataset.k;
+    const active = (k === sortKey);
+    b.textContent = (k==="mom"?"勢い":k==="r3m"?"3M":"5D") +
+                    (active ? (sortDir<0 ? " ↓" : " ↑") : "");
+    b.classList.toggle("on", active);
+  });
+}
 const lblBtn = document.createElement("button");
 lblBtn.className = "pill"; lblBtn.id = "lbl"; lblBtn.textContent = "ラベル";
 lblBtn.onclick = ()=>{ showAllLabels = !showAllLabels; render(); };
@@ -297,11 +333,16 @@ function fmt(v){
 }
 function renderSectorList(S, snap){
   $("list").innerHTML = S.map((d,i)=>
-    '<div class="li"><span class="no">'+(i+1)+'</span>'+
+    '<div class="li tap" data-sector="'+d.sector+'">'+
+    '<span class="no">'+(i+1)+'</span>'+
     '<span class="dot" style="background:'+d.color+'"></span>'+
     '<span class="nm">'+d.sector+' <span class="sec">'+d.n+'銘柄</span></span>'+
-    '<span class="val">3M '+fmt(d.r3m)+' / 5D '+fmt(d.r5)+'</span></div>'
+    '<span class="val">3M '+fmt(d.r3m)+' / 5D '+fmt(d.r5)+'</span>'+
+    '<span class="arw">›</span></div>'
   ).join("");
+  $("list").querySelectorAll(".li.tap").forEach(el=>{
+    el.onclick = ()=>{ stopPlay(); drill = el.dataset.sector; render(); };
+  });
 }
 function renderList(rows, snap){
   $("list").innerHTML = rows.map((d,i)=>
