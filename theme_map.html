@@ -49,6 +49,8 @@
   .li .nm{flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
   .li .sec{color:var(--dim); font-size:11px;}
   .li .st{color:var(--star); font-size:12px; flex:none;}
+  .li .zn{flex:none; font-size:10.5px; font-weight:700; padding:2px 6px;
+          border-radius:5px; letter-spacing:.02em; white-space:nowrap;}
   .li .val{font-variant-numeric:tabular-nums; font-size:12px; text-align:right; min-width:110px;}
   .li .val b{font-weight:600;}
   .pos{color:#3ddc84;} .neg{color:#ff5d73;}
@@ -81,6 +83,10 @@
 <footer>
   <b>軸</b>: 横・縦それぞれ 3M / 20D / 15D / 10D / 5D を選択（対数風スケール・表示中の銘柄に自動ズーム）。
   象限しきい値は軸の期間に連動（3M±5.0% / 20D±2.5% / 15D±2.0% / 10D±1.5% / 5D±1.0%）。<br>
+  <b>ゾーン</b>: 横軸3段×縦軸3段の9分類。しきい値超=強 / ±しきい値内=中間 / しきい値割れ=弱。<br>
+  　横強→ <span style="color:#3ddc84">リーダー</span>（縦強）/ <span style="color:#8fe3c0">継続</span>（縦中間）/ <span style="color:#f2c94c">押し目</span>（縦弱）<br>
+  　横中間→ <span style="color:#43c8e8">点火</span>（縦強）/ <span style="color:#7f8ea0">中立</span>（縦中間）/ <span style="color:#ffb26b">失速</span>（縦弱）<br>
+  　横弱→ <span style="color:#ff5d73">⚠反発</span>（縦強）/ <span style="color:#ff8fa3">弱</span>（縦中間）/ <span style="color:#ff5d73">下降</span>（縦弱）<br>
   <b>★整列</b>: EMA60&gt;EMA120&gt;EMA200 かつ 終値がEMA20の±3.0%以内。トレンドが揃い、かつ短期の伸びきりが小さい状態。<br>
   <b>⚠弱→反発</b> は長期がマイナスの銘柄の短期反発です。下降トレンド中の反発は継続性が低く、期間中の期待値は他の象限より低くなりやすい枠です。
   <br>点をタップすると銘柄名と数値を表示。※一般的な分析表示であり、投資助言ではありません。
@@ -105,6 +111,33 @@ let yKey = "r5";
 let sortKey = "mom";
 let sortDir = -1;
 
+// ---- ゾーン定義: 長期(横)3段 x 短期(縦)3段 = 9分類 ----
+// rank は強い順の並び替え用
+const ZONES = {
+  leader:  {label:"リーダー", color:"#3ddc84", bg:"rgba(61,220,132,0.15)",  rank:8},
+  dipbuy:  {label:"押し目",   color:"#f2c94c", bg:"rgba(242,201,76,0.15)",  rank:7},
+  cont:    {label:"継続",     color:"#8fe3c0", bg:"rgba(143,227,192,0.12)", rank:6},
+  ignite:  {label:"点火",     color:"#43c8e8", bg:"rgba(67,200,232,0.15)",  rank:5},
+  neutral: {label:"中立",     color:"#7f8ea0", bg:"rgba(127,142,160,0.10)", rank:4},
+  stall:   {label:"失速",     color:"#ffb26b", bg:"rgba(255,178,107,0.13)", rank:3},
+  weak:    {label:"弱",       color:"#ff8fa3", bg:"rgba(255,143,163,0.12)", rank:2},
+  bounce:  {label:"⚠反発",   color:"#ff5d73", bg:"rgba(255,93,115,0.18)",  rank:1},
+  down:    {label:"下降",     color:"#ff5d73", bg:"rgba(255,93,115,0.12)",  rank:0},
+};
+// -1 / 0 / +1 の3段に落とす
+function band(v, th){ return v >= th ? 1 : (v <= -th ? -1 : 0); }
+function zoneKey(d){
+  const bx = band(d[xKey], TH[xKey]), by = band(d[yKey], TH[yKey]);
+  if(bx ===  1) return by ===  1 ? "leader"  : (by === -1 ? "dipbuy" : "cont");
+  if(bx === -1) return by ===  1 ? "bounce"  : (by === -1 ? "down"   : "weak");
+  return             by ===  1 ? "ignite"  : (by === -1 ? "stall"  : "neutral");
+}
+function zoneOf(d){ return ZONES[zoneKey(d)]; }
+function zoneBadge(d){
+  const z = zoneOf(d);
+  return '<span class="zn" style="color:'+z.color+';background:'+z.bg+'">'+z.label+'</span>';
+}
+
 // ---- 象限フィルタ: 選択中の軸としきい値で動的に判定 ----
 const FILTERS = {
   all:     null,
@@ -118,11 +151,13 @@ const FILTER_LABEL = {all:"全て", leader:"リーダー", dip:"押し目買い"
 
 function scoreOf(d){
   if(sortKey === "star") return (d.star?1:0);
+  if(sortKey === "zone") return zoneOf(d).rank;
   if(sortKey !== "mom")  return d[sortKey];
   return Math.abs(d[xKey]) + Math.abs(d[yKey])*3;
 }
 function sortRows(arr){
-  return arr.slice().sort((a,b)=>(scoreOf(a)-scoreOf(b))*sortDir*-1);
+  // sortDir=-1:降順(大きい順) / +1:昇順。ボタンの矢印表示と一致させる
+  return arr.slice().sort((a,b)=>(scoreOf(a)-scoreOf(b))*sortDir);
 }
 
 // ---- symlog ----
@@ -247,8 +282,9 @@ function render(){
         : {size:10, color:"#0d1117"},
       marker:{size:S.map(d=>Math.max(16, 9+Math.sqrt(d.n)*3.4)),
               color:S.map(d=>d.color), opacity:0.9, line:{color:"#0d1117", width:1.5}},
-      customdata:S.map((d,i)=>[d.sector, d.n, d[xKey], d[yKey], i+1, d.stars]),
-      hovertemplate:"<b>%{customdata[4]}. %{customdata[0]}</b>（%{customdata[1]}銘柄・★%{customdata[5]}）<br>"+
+      customdata:S.map((d,i)=>[d.sector, d.n, d[xKey], d[yKey], i+1, d.stars, zoneOf(d).label]),
+      hovertemplate:"<b>%{customdata[4]}. %{customdata[0]}</b>（%{customdata[1]}銘柄・★%{customdata[5]}）"+
+                    "　<b>%{customdata[6]}</b><br>"+
                     PERIOD_LABEL[xKey]+": %{customdata[2]}%　"+
                     PERIOD_LABEL[yKey]+": %{customdata[3]}%<extra></extra>",
     }];
@@ -293,8 +329,10 @@ function render(){
         line:{color:rows.map(d=>d.star?"#f2c94c":"#0d1117"),
               width:rows.map(d=>d.star?2.5:1)},
       },
-      customdata:rows.map((d,i)=>[d.name, d.code, d.sector, d[xKey], d[yKey], i+1, d.star?" ★整列":""]),
-      hovertemplate:"<b>%{customdata[5]}. %{customdata[0]}</b>（%{customdata[1]}・%{customdata[2]}）%{customdata[6]}<br>"+
+      customdata:rows.map((d,i)=>[d.name, d.code, d.sector, d[xKey], d[yKey], i+1,
+                                  d.star?" ★整列":"", zoneOf(d).label]),
+      hovertemplate:"<b>%{customdata[5]}. %{customdata[0]}</b>（%{customdata[1]}・%{customdata[2]}）%{customdata[6]}"+
+                    "　<b>%{customdata[7]}</b><br>"+
                     PERIOD_LABEL[xKey]+": %{customdata[3]}%　"+
                     PERIOD_LABEL[yKey]+": %{customdata[4]}%<extra></extra>",
     }];
@@ -366,8 +404,8 @@ Object.keys(FILTERS).forEach(k=>{
   b.onclick = ()=>{ stopPlay(); filter=k; drill=null; render(); };
   $("filterrow").appendChild(b);
 });
-const SORT_DEFS = [["mom","勢い"],["star","★"],["r3m","3M"],["r20","20D"],
-                   ["r15","15D"],["r10","10D"],["r5","5D"]];
+const SORT_DEFS = [["mom","勢い"],["zone","ゾーン"],["star","★"],["r3m","3M"],
+                   ["r20","20D"],["r15","15D"],["r10","10D"],["r5","5D"]];
 SORT_DEFS.forEach(([k,label])=>{
   const b = document.createElement("button");
   b.className = "pill s"; b.dataset.k = k;
@@ -379,7 +417,8 @@ SORT_DEFS.forEach(([k,label])=>{
   $("sortrow").appendChild(b);
 });
 function updateSortButtons(){
-  const names={mom:"勢い",star:"★",r3m:"3M",r20:"20D",r15:"15D",r10:"10D",r5:"5D"};
+  const names={mom:"勢い",zone:"ゾーン",star:"★",r3m:"3M",r20:"20D",
+               r15:"15D",r10:"10D",r5:"5D"};
   document.querySelectorAll("#sortrow .s").forEach(b=>{
     const k = b.dataset.k;
     const active = (k === sortKey);
@@ -407,6 +446,7 @@ function renderSectorList(S, snap){
     '<span class="dot" style="background:'+d.color+'"></span>'+
     '<span class="nm">'+d.sector+' <span class="sec">'+d.n+'銘柄</span></span>'+
     (d.stars>0 ? '<span class="st">★'+d.stars+'</span>' : '')+
+    zoneBadge(d)+
     '<span class="arw">›</span>'+valsLine(d)+'</div>'
   ).join("");
   $("list").querySelectorAll(".li.tap").forEach(el=>{
@@ -420,6 +460,7 @@ function renderList(rows, snap){
     '<span class="cd">'+d.code+'</span>'+
     '<span class="nm">'+(d.star?'<span class="st">★</span> ':'')+d.name+
     ' <span class="sec">'+d.sector+'</span></span>'+
+    zoneBadge(d)+
     valsLine(d)+'</div>'
   ).join("");
 }
