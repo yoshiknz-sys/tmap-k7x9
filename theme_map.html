@@ -105,8 +105,10 @@
   <b>当日</b>=最新バー÷1本前（ザラ場中は未確定・大引けまで動く）／
   <b>1D</b>=1本前÷2本前（確定値。MACD-V「前日確定」と同じ時点）。
   時点ボタンをずらすと両方が一緒にずれます。<br>
-  <b>並び替え</b>: <b>乖離</b>＝「MACD-V − Sig = 差分」の右辺（Pine Scriptの hist と同じ値＝勢いの加速度）の降順、<b>連続</b>＝①②③の連続本数の降順。
+  <b>並び替え</b>: <b>Hist</b>＝「MACD-V − Sig = 差分」の右辺。Pine Scriptの hist = macdV - Signal と同じ値で、
+  TradingViewのヒストグラムの棒の高さに対応します（勢いの加速度）。<b>連続</b>＝①②③の連続本数。
   どちらも「該当（✔）が先、非該当が後」の2段構えで、グループ内が同じ基準で並びます。
+  ボタンの<b>↓が大きい順、↑が小さい順</b>です（↑では非該当が先頭に来ます）。
   業種一覧では ★・乖離・連続はいずれも該当数で並びます。
   同点は勢い順に並びます。<br>
   <b>四隅のラベル</b>（リーダー／押し目／⚠反発／下降）は<b>タップで絞り込み</b>。
@@ -392,8 +394,9 @@ function render(){
     $("info").style.display = "block";
     $("info").innerHTML = "並び替え中: <b>"+MV_MODE_LABEL[mvLag]+"・"+mvN+
       "本連続</b>を満たす"+n+"件を上に、それ以外を下に。"+
-      (sortKey==="mv" ? "各グループ内は<b>乖離（MACD-V−Signal）</b>の大きい順。"
-                      : "各グループ内は<b>連続本数</b>の多い順。")+
+      (sortKey==="mv" ? "各グループ内は<b>Hist（MACD-V−Signal）</b>の"
+                      : "各グループ内は<b>連続本数</b>の")+
+      (sortDir<0 ? "大きい順。" : "小さい順。")+
       "（内訳 "+MV_N_CHOICES.map(k=>k+"本:"+snap.stocks.filter(d=>mvStk(d)>=k).length).join(" / ")+"）";
   }else{
     $("info").style.display = "none";
@@ -479,7 +482,7 @@ function render(){
                                   d.star?" ★整列":"", zoneOf(d).label,
                                   !has(mvVal(d)) ? "—"
                                     : ("MACD-V "+mvVal(d)+" − Sig "+mvSig(d)
-                                       +" = "+(mvGap(d)>=0?"+":"")+mvGap(d).toFixed(1)
+                                       +" = Hist"+(mvGap(d)>=0?"+":"")+mvGap(d).toFixed(1)
                                        +"　"+mvStk(d)+"本連続"
                                        +(mvOK(d)?" ✔":"")
                                        +"（"+MV_MODE_LABEL[mvLag]+"）")]),
@@ -576,7 +579,7 @@ Object.keys(FILTERS).forEach(k=>{
   b.onclick = ()=>{ stopPlay(); filter=k; drill=null; render(); };
   $("filterrow").appendChild(b);
 });
-const SORT_DEFS = [["mom","勢い"],["zone","ゾーン"],["star","★"],["mv","乖離"],["mvk","連続"],
+const SORT_DEFS = [["mom","勢い"],["zone","ゾーン"],["star","★"],["mv","Hist"],["mvk","連続"],
                    ["r3m","3M"],["r20","20D"],["r15","15D"],["r10","10D"],
                    ["r5","5D"],["r1","1D"],["rt","当日"]];
 SORT_DEFS.forEach(([k,label])=>{
@@ -590,7 +593,7 @@ SORT_DEFS.forEach(([k,label])=>{
   $("sortrow").appendChild(b);
 });
 function updateSortButtons(){
-  const names={mom:"勢い",zone:"ゾーン",star:"★",mv:"乖離",mvk:"連続",r3m:"3M",r20:"20D",
+  const names={mom:"勢い",zone:"ゾーン",star:"★",mv:"Hist",mvk:"連続",r3m:"3M",r20:"20D",
                r15:"15D",r10:"10D",r5:"5D",r1:"1D",rt:"当日"};
   document.querySelectorAll("#sortrow .s").forEach(b=>{
     const k = b.dataset.k;
@@ -614,7 +617,7 @@ function valsLine(d){
     var g = mvGap(d);
     mv = '　<span style="color:'+(mvOK(d)?"#6f9dff":"#5b6675")+'">MACD-V '+
          mvVal(d).toFixed(1)+' − Sig '+mvSig(d).toFixed(1)+
-         ' = <b>'+(g>=0?'+':'')+g.toFixed(1)+'</b>'+
+         ' = <b>Hist'+(g>=0?'+':'')+g.toFixed(1)+'</b>'+
          (mvStk(d)>0 ? '　'+mvStk(d)+'本' : '')+(mvOK(d)?" ✔":"")+'</span>';
   }
   return '<div class="vals">3M '+fmt(d.r3m)+'　20D '+fmt(d.r20)+
@@ -638,16 +641,17 @@ function renderSectorList(S, snap){
 }
 function renderList(rows, snap){
   // MACD-V並び替え時は 該当/非該当 の境目に区切りを入れる
-  const showSep = (sortKey === "mv" || sortKey === "mvk") && sortDir < 0;
+  const showSep = (sortKey === "mv" || sortKey === "mvk");
   let prevOK = null;
   $("list").innerHTML = rows.map((d,i)=>{
     let sep = "";
     if(showSep){
       const ok = mvOK(d);
-      const by = (sortKey === "mv") ? "乖離の大きい順" : "連続本数の多い順";
-      if(prevOK === null && ok) sep = '<div class="sep">✔ 該当（'+MV_MODE_LABEL[mvLag]+'・'+mvN+'本連続）／'+by+'</div>';
-      else if(prevOK === true && !ok) sep = '<div class="sep">— 非該当／'+by+'</div>';
-      else if(prevOK === null && !ok)  sep = '<div class="sep">— 非該当／'+by+'</div>';
+      const unit = (sortKey === "mv") ? "Hist" : "連続本数";
+      const by   = unit + (sortDir < 0 ? "の大きい順" : "の小さい順");
+      const head = '✔ 該当（'+MV_MODE_LABEL[mvLag]+'・'+mvN+'本連続）／'+by;
+      const tail = '— 非該当／'+by;
+      if(prevOK !== ok) sep = '<div class="sep">'+(ok ? head : tail)+'</div>';
       prevOK = ok;
     }
     return sep+
