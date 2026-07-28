@@ -105,7 +105,7 @@
   <b>当日</b>=最新バー÷1本前（ザラ場中は未確定・大引けまで動く）／
   <b>1D</b>=1本前÷2本前（確定値。MACD-V「前日確定」と同じ時点）。
   時点ボタンをずらすと両方が一緒にずれます。<br>
-  <b>並び替え</b>: <b>乖離</b>＝MACD-V−Signal（ヒストグラム＝勢いの加速度）の降順、<b>連続</b>＝①②③の連続本数の降順。
+  <b>並び替え</b>: <b>乖離</b>＝「MACD-V − Sig = 差分」の右辺（Pine Scriptの hist と同じ値＝勢いの加速度）の降順、<b>連続</b>＝①②③の連続本数の降順。
   どちらも「該当（✔）が先、非該当が後」の2段構えで、グループ内が同じ基準で並びます。
   業種一覧では ★・乖離・連続はいずれも該当数で並びます。
   同点は勢い順に並びます。<br>
@@ -478,14 +478,14 @@ function render(){
       customdata:rows.map((d,i)=>[d.name, d.code, d.sector, d[xKey], d[yKey], i+1,
                                   d.star?" ★整列":"", zoneOf(d).label,
                                   !has(mvVal(d)) ? "—"
-                                    : (mvVal(d)+" / "+mvSig(d)
-                                       +"　乖離"+(mvGap(d)>=0?"+":"")+mvGap(d).toFixed(1)
+                                    : ("MACD-V "+mvVal(d)+" − Sig "+mvSig(d)
+                                       +" = "+(mvGap(d)>=0?"+":"")+mvGap(d).toFixed(1)
                                        +"　"+mvStk(d)+"本連続"
                                        +(mvOK(d)?" ✔":"")
                                        +"（"+MV_MODE_LABEL[mvLag]+"）")]),
       hovertemplate:"<b>%{customdata[5]}. %{customdata[0]}</b>（%{customdata[1]}・%{customdata[2]}）%{customdata[6]}"+
                     "　<b>%{customdata[7]}</b><br>"+
-                    "MACD-V/Sig: %{customdata[8]}<br>"+
+                    "%{customdata[8]}<br>"+
                     PERIOD_LABEL[xKey]+": %{customdata[3]}%　"+
                     PERIOD_LABEL[yKey]+": %{customdata[4]}%<extra></extra>",
     }];
@@ -613,9 +613,9 @@ function valsLine(d){
   if(has(mvVal(d))){
     var g = mvGap(d);
     mv = '　<span style="color:'+(mvOK(d)?"#6f9dff":"#5b6675")+'">MACD-V '+
-         mvVal(d).toFixed(1)+'/'+mvSig(d).toFixed(1)+
-         ' 乖離'+(g>=0?'+':'')+g.toFixed(1)+
-         (mvStk(d)>0 ? ' '+mvStk(d)+'本' : '')+(mvOK(d)?" ✔":"")+'</span>';
+         mvVal(d).toFixed(1)+' − Sig '+mvSig(d).toFixed(1)+
+         ' = <b>'+(g>=0?'+':'')+g.toFixed(1)+'</b>'+
+         (mvStk(d)>0 ? '　'+mvStk(d)+'本' : '')+(mvOK(d)?" ✔":"")+'</span>';
   }
   return '<div class="vals">3M '+fmt(d.r3m)+'　20D '+fmt(d.r20)+
          '　15D '+fmt(d.r15)+'　10D '+fmt(d.r10)+'　5D '+fmt(d.r5)+
