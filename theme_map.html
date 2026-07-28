@@ -61,6 +61,9 @@
   .li .nm{flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
   .li .sec{color:var(--dim); font-size:11px;}
   .li .st{color:var(--star); font-size:12px; flex:none;}
+  .sep{display:flex; align-items:center; gap:8px; padding:8px 2px 4px;
+       font-size:11px; color:var(--dim); letter-spacing:.04em;}
+  .sep::after{content:""; flex:1; height:1px; background:#243040;}
   .li .zn{flex:none; font-size:10.5px; font-weight:700; padding:2px 6px;
           border-radius:5px; letter-spacing:.02em; white-space:nowrap;}
   .li .val{font-variant-numeric:tabular-nums; font-size:12px; text-align:right; min-width:110px;}
@@ -102,7 +105,9 @@
   <b>当日</b>=最新バー÷1本前（ザラ場中は未確定・大引けまで動く）／
   <b>1D</b>=1本前÷2本前（確定値。MACD-V「前日確定」と同じ時点）。
   時点ボタンをずらすと両方が一緒にずれます。<br>
-  <b>並び替え</b>: 業種一覧では ★＝該当数、MACD-V・連続＝該当数で並びます（個別銘柄では ★＝有無、MACD-V＝値、連続＝本数）。
+  <b>並び替え</b>: <b>乖離</b>＝MACD-V−Signal（ヒストグラム＝勢いの加速度）の降順、<b>連続</b>＝①②③の連続本数の降順。
+  どちらも「該当（✔）が先、非該当が後」の2段構えで、グループ内が同じ基準で並びます。
+  業種一覧では ★・乖離・連続はいずれも該当数で並びます。
   同点は勢い順に並びます。<br>
   <b>四隅のラベル</b>（リーダー／押し目／⚠反発／下降）は<b>タップで絞り込み</b>。
   選択中は「●」が付き、同じラベルを再タップすると「全て」に戻ります。<br>
@@ -151,6 +156,8 @@ const mvOK  = d => mvStk(d) >= mvN;
 const mvVal = d => mvLag === 1 ? d.mvv1   : d.mvv;
 const mvSig = d => mvLag === 1 ? d.mvs1   : d.mvs;
 const has   = v => v !== null && v !== undefined;
+// 乖離 = MACD-V − Signal（＝ヒストグラム）。勢いの加速度
+const mvGap = d => (has(mvVal(d)) && has(mvSig(d))) ? (mvVal(d) - mvSig(d)) : null;
 const MV_MODE_LABEL = {1:"前日確定", 0:"当日終値"};
 const MV_N_CHOICES  = [1, 2, 3, 5];
 
@@ -221,9 +228,13 @@ function scoreOf(d){
     return (isSector(d) ? (d.stars || 0) : (d.star ? 1 : 0)) + tb;
   if(sortKey === "zone")
     return zoneOf(d).rank + tb;
-  if(sortKey === "mv")
-    return isSector(d) ? mvCnt(d) + tb
-                       : (has(mvVal(d)) ? mvVal(d) : -9999);
+  if(sortKey === "mv"){
+    if(isSector(d))       return mvCnt(d) + tb;
+    const g = mvGap(d);
+    if(g === null)        return -1e9;              // MACD-V未計算は最後尾
+    // 該当(✔)を上、非該当を下に分け、各グループ内は乖離(MACD-V−Signal)の降順
+    return (mvOK(d) ? 1e6 : 0) + g;
+  }
   if(sortKey === "mvk")
     return (isSector(d) ? mvCnt(d) : mvStk(d)) + tb;
   if(sortKey !== "mom")  return d[sortKey];
@@ -355,11 +366,14 @@ function render(){
     $("warn").style.display = "none";
   }
 
-  // MACD-V 説明バナー + ラグ切替行
+  // MACD-V 説明バナー + ラグ/連続本数の切替行
+  // フィルタだけでなく、MACD-V・連続で並び替えているときも選択行を出す
+  const mvActive = (filter === "macdv" || sortKey === "mv" || sortKey === "mvk");
+  $("mvrow").style.display  = mvActive ? "flex" : "none";
+  $("mvnrow").style.display = mvActive ? "flex" : "none";
+
   if(filter === "macdv"){
     const n = snap.stocks.filter(mvOK).length;
-    $("mvrow").style.display = "flex";
-    $("mvnrow").style.display = "flex";
     $("info").style.display = "block";
     $("info").innerHTML = "<b>①②③＝"+MV_MODE_LABEL[mvLag]+"のバーで"+mvN+"本連続</b>"+
       (mvLag===1 ? "（当日の値動きでは変わりません。ザラ場中向け）"
@@ -372,9 +386,16 @@ function render(){
        yKey==="r1" ? "（＝前日が確定で下落）" : "")+
       " で絞って表示中。①②③と④は独立で、縦軸を変えると④だけが変わります。"+
       (n===0 ? "<br><b>0件の場合はOHLCが渡っていない可能性があります（Cell 9でhighs/lowsを指定）。</b>" : "");
+  }else if(mvActive){
+    // 並び替えのみMACD-Vのとき: 何本連続で判定しているかだけ短く出す
+    const n = snap.stocks.filter(mvOK).length;
+    $("info").style.display = "block";
+    $("info").innerHTML = "並び替え中: <b>"+MV_MODE_LABEL[mvLag]+"・"+mvN+
+      "本連続</b>を満たす"+n+"件を上に、それ以外を下に。"+
+      (sortKey==="mv" ? "各グループ内は<b>乖離（MACD-V−Signal）</b>の大きい順。"
+                      : "各グループ内は<b>連続本数</b>の多い順。")+
+      "（内訳 "+MV_N_CHOICES.map(k=>k+"本:"+snap.stocks.filter(d=>mvStk(d)>=k).length).join(" / ")+"）";
   }else{
-    $("mvrow").style.display = "none";
-    $("mvnrow").style.display = "none";
     $("info").style.display = "none";
   }
 
@@ -457,7 +478,9 @@ function render(){
       customdata:rows.map((d,i)=>[d.name, d.code, d.sector, d[xKey], d[yKey], i+1,
                                   d.star?" ★整列":"", zoneOf(d).label,
                                   !has(mvVal(d)) ? "—"
-                                    : (mvVal(d)+" / "+mvSig(d)+"　"+mvStk(d)+"本連続"
+                                    : (mvVal(d)+" / "+mvSig(d)
+                                       +"　乖離"+(mvGap(d)>=0?"+":"")+mvGap(d).toFixed(1)
+                                       +"　"+mvStk(d)+"本連続"
                                        +(mvOK(d)?" ✔":"")
                                        +"（"+MV_MODE_LABEL[mvLag]+"）")]),
       hovertemplate:"<b>%{customdata[5]}. %{customdata[0]}</b>（%{customdata[1]}・%{customdata[2]}）%{customdata[6]}"+
@@ -553,7 +576,7 @@ Object.keys(FILTERS).forEach(k=>{
   b.onclick = ()=>{ stopPlay(); filter=k; drill=null; render(); };
   $("filterrow").appendChild(b);
 });
-const SORT_DEFS = [["mom","勢い"],["zone","ゾーン"],["star","★"],["mv","MACD-V"],["mvk","連続"],
+const SORT_DEFS = [["mom","勢い"],["zone","ゾーン"],["star","★"],["mv","乖離"],["mvk","連続"],
                    ["r3m","3M"],["r20","20D"],["r15","15D"],["r10","10D"],
                    ["r5","5D"],["r1","1D"],["rt","当日"]];
 SORT_DEFS.forEach(([k,label])=>{
@@ -567,7 +590,7 @@ SORT_DEFS.forEach(([k,label])=>{
   $("sortrow").appendChild(b);
 });
 function updateSortButtons(){
-  const names={mom:"勢い",zone:"ゾーン",star:"★",mv:"MACD-V",mvk:"連続",r3m:"3M",r20:"20D",
+  const names={mom:"勢い",zone:"ゾーン",star:"★",mv:"乖離",mvk:"連続",r3m:"3M",r20:"20D",
                r15:"15D",r10:"10D",r5:"5D",r1:"1D",rt:"当日"};
   document.querySelectorAll("#sortrow .s").forEach(b=>{
     const k = b.dataset.k;
@@ -588,8 +611,10 @@ function fmt(v){
 function valsLine(d){
   var mv = "";
   if(has(mvVal(d))){
+    var g = mvGap(d);
     mv = '　<span style="color:'+(mvOK(d)?"#6f9dff":"#5b6675")+'">MACD-V '+
          mvVal(d).toFixed(1)+'/'+mvSig(d).toFixed(1)+
+         ' 乖離'+(g>=0?'+':'')+g.toFixed(1)+
          (mvStk(d)>0 ? ' '+mvStk(d)+'本' : '')+(mvOK(d)?" ✔":"")+'</span>';
   }
   return '<div class="vals">3M '+fmt(d.r3m)+'　20D '+fmt(d.r20)+
@@ -612,7 +637,20 @@ function renderSectorList(S, snap){
   });
 }
 function renderList(rows, snap){
-  $("list").innerHTML = rows.map((d,i)=>
+  // MACD-V並び替え時は 該当/非該当 の境目に区切りを入れる
+  const showSep = (sortKey === "mv" || sortKey === "mvk") && sortDir < 0;
+  let prevOK = null;
+  $("list").innerHTML = rows.map((d,i)=>{
+    let sep = "";
+    if(showSep){
+      const ok = mvOK(d);
+      const by = (sortKey === "mv") ? "乖離の大きい順" : "連続本数の多い順";
+      if(prevOK === null && ok) sep = '<div class="sep">✔ 該当（'+MV_MODE_LABEL[mvLag]+'・'+mvN+'本連続）／'+by+'</div>';
+      else if(prevOK === true && !ok) sep = '<div class="sep">— 非該当／'+by+'</div>';
+      else if(prevOK === null && !ok)  sep = '<div class="sep">— 非該当／'+by+'</div>';
+      prevOK = ok;
+    }
+    return sep+
     '<div class="li"><span class="no">'+(i+1)+'</span>'+
     '<span class="dot" style="background:'+sectorColor(snap,d.sector)+'"></span>'+
     '<span class="cd">'+d.code+'</span>'+
@@ -620,8 +658,8 @@ function renderList(rows, snap){
     ' <span class="sec">'+d.sector+'</span></span>'+
     (mvOK(d) ? '<span class="mv">MACD-V</span>' : '')+
     zoneBadge(d)+
-    valsLine(d)+'</div>'
-  ).join("");
+    valsLine(d)+'</div>';
+  }).join("");
 }
 
 $("back").onclick = ()=>{ drill=null; render(); };
