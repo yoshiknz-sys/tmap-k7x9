@@ -74,6 +74,21 @@
   .li .arw{color:var(--dim); font-size:16px; padding-left:2px;}
   .li .cd{flex:none; font-variant-numeric:tabular-nums; font-weight:600;
           color:#9fb4ff; font-size:12.5px; min-width:40px;}
+  #sortslots{padding:2px 14px 0;}
+  .slot{display:flex; align-items:center; gap:7px; padding:3px 0;}
+  .slot .pri{font-size:11px; color:var(--dim); min-width:26px;}
+  .slot select{flex:1; max-width:190px; background:var(--panel); color:var(--tx);
+      border:1px solid var(--line); border-radius:8px; padding:7px 8px;
+      font-size:13px; font-family:inherit; -webkit-appearance:none; appearance:none;
+      background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),
+                       linear-gradient(135deg,var(--dim) 50%,transparent 50%);
+      background-position:calc(100% - 15px) 50%, calc(100% - 10px) 50%;
+      background-size:5px 5px, 5px 5px; background-repeat:no-repeat;}
+  .slot select.set{border-color:var(--acc); color:#eafff2;}
+  .slot .sdir{border:1px solid var(--line); background:var(--panel); color:var(--tx);
+      border-radius:8px; padding:7px 10px; font-size:12px; cursor:pointer;
+      white-space:nowrap; font-family:inherit;}
+  .slot .sdir.on{background:var(--acc); border-color:var(--acc); color:#062812; font-weight:700;}
   footer{padding:4px 14px 16px; font-size:10.5px; color:var(--dim); line-height:1.6;}
 </style>
 </head>
@@ -88,10 +103,9 @@
 <div class="btnrow" id="mvrow"><span class="axlab">判定バー</span></div>
 <div class="btnrow" id="mvnrow"><span class="axlab">連続本数</span></div>
 <div id="stale"></div>
-<div class="btnrow" id="sortrow">
-  <span style="font-size:11px;color:var(--dim);">並び替え:</span>
-</div>
-<div class="btnrow"><button id="sortclear" class="pill sm">並び替えを解除</button>
+<div class="btnrow"><span style="font-size:11px;color:var(--dim);">並び替え（第1が最優先）</span></div>
+<div id="sortslots"></div>
+<div class="btnrow"><button id="sortclear" class="pill sm">既定に戻す</button>
   <span id="sortnote" style="font-size:10.5px;color:var(--dim);"></span></div>
 <div id="crumb">
   <button id="back" class="pill">← 業種一覧に戻る</button>
@@ -107,7 +121,10 @@
   <b>当日</b>=最新バー÷1本前（ザラ場中は未確定・大引けまで動く）／
   <b>1D</b>=1本前÷2本前（確定値。MACD-V「前日確定」と同じ時点）。
   時点ボタンをずらすと両方が一緒にずれます。<br>
-  <b>並び替え</b>: <b>Hist</b>＝「MACD-V − Sig = 差分」の右辺。Pine Scriptの hist = macdV - Signal と同じ値で、
+  <b>並び替え</b>: 第1〜第5のプルダウンで優先順に指定します（第1が最優先）。各段の［↓大→小 / ↑小→大］で向きを切替。
+  「— 指定なし —」でその段を解除すると下の段が繰り上がります。既定は第1＝当日の降順。<br>
+  <b>20SMA乖離</b>＝(終値÷20日単純移動平均−1)×100。※★整列の判定はEMA20なので数値は一致しません。<br>
+  <b>Hist</b>＝「MACD-V − Sig = 差分」の右辺。Pine Scriptの hist = macdV - Signal と同じ値で、
   TradingViewのヒストグラムの棒の高さに対応します（勢いの加速度）。<b>連続</b>＝①②③の連続本数。
   どちらも「該当（✔）が先、非該当が後」の2段構えで、グループ内が同じ基準で並びます。
   ボタンの<b>↓が大きい順、↑が小さい順</b>です（↑では非該当が先頭に来ます）。
@@ -175,7 +192,7 @@ function buildSectorMv(snap){
 }
 const mvCnt = s => MV_BY_SECTOR[s.sector] || 0;
 // 並び替え: 優先順の配列。{k:キー, dir:-1(降順)/+1(昇順)}。最大5件
-let sortList = [{k:"mom", dir:-1}];
+let sortList = [{k:"rt", dir:-1}];   // 既定: 当日の騰落率を大きい順(+→−)
 const SORT_MAX = 5;
 const PRI_MARK = ["①","②","③","④","⑤"];
 const sortTop = () => sortList[0] || {k:"mom", dir:-1};
@@ -594,24 +611,49 @@ const SORT_DEFS = [["mom","勢い"],["zone","ゾーン"],["star","★"],["mv","H
                    ["d20","20SMA乖離"],
                    ["r3m","3M"],["r20","20D"],["r15","15D"],["r10","10D"],
                    ["r5","5D"],["r1","1D"],["rt","当日"]];
-SORT_DEFS.forEach(([k,label])=>{
-  const b = document.createElement("button");
-  b.className = "pill s"; b.dataset.k = k;
-  b.onclick = ()=>{
-    stopPlay();
-    const i = sortList.findIndex(s => s.k === k);
-    if(i < 0){
-      if(sortList.length < SORT_MAX) sortList.push({k:k, dir:-1});   // 降順で追加
-    }else if(sortList[i].dir === -1){
-      sortList[i].dir = 1;                                            // 昇順へ
-    }else{
-      sortList.splice(i, 1);                                          // 解除
-    }
-    if(sortList.length === 0) sortList = [{k:"mom", dir:-1}];
-    render();
-  };
-  $("sortrow").appendChild(b);
-});
+// 並び替えスロット（第1〜第5）を描画。埋まっている段＋空き1段を表示
+function renderSortSlots(){
+  const host = $("sortslots");
+  const rows = Math.min(sortList.length + 1, SORT_MAX);
+  let html = "";
+  for(let i=0; i<rows; i++){
+    const cur = sortList[i];
+    const opts = ['<option value="">— 指定なし —</option>'].concat(
+      SORT_DEFS.filter(([k])=>{
+        // 他の段で既に使っているキーは出さない（同じ段の現在値は残す）
+        const used = sortList.findIndex(s=>s.k===k);
+        return used < 0 || used === i;
+      }).map(([k,label])=>
+        '<option value="'+k+'"'+(cur && cur.k===k ? ' selected' : '')+'>'+label+'</option>')
+    ).join("");
+    html += '<div class="slot"><span class="pri">第'+(i+1)+'</span>'+
+            '<select class="skey'+(cur?' set':'')+'" data-i="'+i+'">'+opts+'</select>'+
+            (cur ? '<button class="sdir'+(cur.dir<0?' on':'')+'" data-i="'+i+'">'+
+                   (cur.dir<0 ? "↓ 大→小" : "↑ 小→大")+'</button>' : '')+
+            '</div>';
+  }
+  host.innerHTML = html;
+
+  host.querySelectorAll("select.skey").forEach(sel=>{
+    sel.onchange = ()=>{
+      stopPlay();
+      const i = Number(sel.dataset.i), v = sel.value;
+      if(!v){ sortList.splice(i, 1); }
+      else if(sortList[i]){ sortList[i].k = v; }
+      else { sortList.push({k:v, dir:-1}); }
+      if(sortList.length === 0) sortList = [{k:"rt", dir:-1}];
+      render();
+    };
+  });
+  host.querySelectorAll("button.sdir").forEach(b=>{
+    b.onclick = ()=>{
+      stopPlay();
+      const i = Number(b.dataset.i);
+      if(sortList[i]) sortList[i].dir = -sortList[i].dir;
+      render();
+    };
+  });
+}
 const SORT_NAME = {mom:"勢い",zone:"ゾーン",star:"★",mv:"Hist",mvk:"連続",
                    d20:"20SMA乖離",r3m:"3M",r20:"20D",r15:"15D",r10:"10D",
                    r5:"5D",r1:"1D",rt:"当日"};
@@ -619,19 +661,11 @@ function sortSummary(){
   return sortList.map((s,i)=>PRI_MARK[i]+SORT_NAME[s.k]+(s.dir<0?"↓":"↑")).join(" ");
 }
 function updateSortButtons(){
-  document.querySelectorAll("#sortrow .s").forEach(b=>{
-    const k = b.dataset.k;
-    const i = sortList.findIndex(s => s.k === k);
-    b.textContent = SORT_NAME[k] +
-      (i >= 0 ? " " + PRI_MARK[i] + (sortList[i].dir<0 ? "↓" : "↑") : "");
-    b.classList.toggle("on", i >= 0);
-  });
-  $("sortnote").textContent =
-    "優先 " + sortSummary() +
-    (sortList.length >= SORT_MAX ? "（上限5）" : "") +
-    " ／ タップで 降順↓→昇順↑→解除";
+  renderSortSlots();
+  $("sortnote").textContent = "現在: " + sortSummary() +
+    (sortList.length >= SORT_MAX ? "（上限5）" : "");
 }
-$("sortclear").onclick = ()=>{ stopPlay(); sortList = [{k:"mom", dir:-1}]; render(); };
+$("sortclear").onclick = ()=>{ stopPlay(); sortList = [{k:"rt", dir:-1}]; render(); };
 
 const lblBtn = document.createElement("button");
 lblBtn.className = "pill"; lblBtn.id = "lbl"; lblBtn.textContent = "ラベル";
