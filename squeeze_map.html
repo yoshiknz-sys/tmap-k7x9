@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>需給気圧図 — 踏み上げスクリーナー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink900:#0F1521;
+  --ink800:#151D2B;
+  --ink700:#1B2434;
+  --ink600:#232E42;
+  --ink500:#2E3B52;
+  --mist:#8798B0;
+  --mist2:#5D6E88;
+  --paper:#E6ECF2;
+  --shu:#E8503A;      /* 朱 — 踏み上げ圧・高 */
+  --shu-d:#8C2A1E;
+  --ai:#3D8FD1;       /* 藍 — 圧・低 */
+  --ai-d:#1E4A6E;
+  --kincha:#E0A335;   /* 金茶 — 進行中・警戒 */
+  --midori:#4FA88B;
+  --r:3px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink900);
+  color:var(--paper);
+  font-family:"Zen Kaku Gothic New",system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+  font-size:13px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:"Roboto Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px 80px}
+
+/* ---------- header ---------- */
+header{border-bottom:1px solid var(--ink500);margin-bottom:0}
+.hd{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;padding:22px 0 14px}
+h1{
+  font-family:"Zen Old Mincho",serif;font-weight:700;font-size:26px;
+  margin:0;letter-spacing:.16em;
+}
+h1 .sub{font-family:"Roboto Mono",monospace;font-size:11px;letter-spacing:.22em;color:var(--mist2);display:block;margin-top:6px;font-weight:400}
+.hd-meta{margin-left:auto;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.meta-item{font-size:11px;color:var(--mist)}
+.meta-item b{display:block;font-family:"Roboto Mono",monospace;font-size:13px;color:var(--paper);font-weight:500}
+.badge{
+  font-family:"Roboto Mono",monospace;font-size:10px;letter-spacing:.14em;
+  border:1px solid var(--kincha);color:var(--kincha);padding:3px 8px;border-radius:var(--r);
+}
+
+/* ---------- regime strip ---------- */
+.regime{
+  display:flex;align-items:stretch;gap:0;border:1px solid var(--ink500);border-top:none;
+  background:var(--ink800);
+}
+.regime-cell{padding:10px 16px;border-right:1px solid var(--ink600);flex:1;min-width:130px}
+.regime-cell:last-child{border-right:none}
+.regime-lab{font-family:"Roboto Mono",monospace;font-size:9.5px;letter-spacing:.16em;color:var(--mist2);text-transform:uppercase}
+.regime-val{font-family:"Roboto Mono",monospace;font-size:17px;font-weight:500;margin-top:2px}
+.regime-note{font-size:10.5px;color:var(--mist)}
+.regime-verdict{background:var(--ink700);min-width:190px;display:flex;flex-direction:column;justify-content:center}
+.verdict-tag{font-size:15px;font-weight:700;letter-spacing:.08em}
+
+/* ---------- tabs / controls ---------- */
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:16px 0 0}
+.tabs{display:flex;border:1px solid var(--ink500);border-radius:var(--r);overflow:hidden}
+.tab{
+  background:transparent;border:none;color:var(--mist);cursor:pointer;
+  font-family:"Zen Kaku Gothic New",sans-serif;font-size:12.5px;font-weight:500;
+  padding:8px 20px;border-right:1px solid var(--ink500);
+}
+.tab:last-child{border-right:none}
+.tab:hover{color:var(--paper);background:var(--ink700)}
+.tab[aria-selected="true"]{background:var(--paper);color:var(--ink900);font-weight:700}
+.tab:focus-visible,.tg:focus-visible,select:focus-visible,.pt:focus-visible{outline:2px solid var(--kincha);outline-offset:2px}
+
+.ctl{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:14px 0 18px;border-bottom:1px solid var(--ink600)}
+.ctl-group{display:flex;align-items:center;gap:7px}
+.ctl-lab{font-family:"Roboto Mono",monospace;font-size:9.5px;letter-spacing:.14em;color:var(--mist2)}
+select{
+  background:var(--ink700);color:var(--paper);border:1px solid var(--ink500);border-radius:var(--r);
+  font-family:"Zen Kaku Gothic New",sans-serif;font-size:12px;padding:5px 8px;cursor:pointer;
+}
+.tg{
+  background:transparent;border:1px solid var(--ink500);color:var(--mist);cursor:pointer;
+  font-family:"Zen Kaku Gothic New",sans-serif;font-size:11.5px;padding:5px 12px;border-radius:var(--r);
+}
+.tg:hover{border-color:var(--mist2);color:var(--paper)}
+.tg[aria-pressed="true"]{background:var(--ink600);border-color:var(--mist);color:var(--paper)}
+.tg[aria-pressed="true"]::before{content:"● ";color:var(--kincha);font-size:8px;vertical-align:middle}
+
+/* ---------- layout ---------- */
+.main{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;padding-top:20px}
+@media(max-width:980px){.main{grid-template-columns:1fr}}
+.panel{background:var(--ink800);border:1px solid var(--ink600);border-radius:var(--r)}
+.panel-hd{
+  padding:10px 14px;border-bottom:1px solid var(--ink600);
+  display:flex;justify-content:space-between;align-items:baseline;gap:10px
+}
+.panel-t{font-size:12.5px;font-weight:700;letter-spacing:.05em}
+.panel-s{font-size:10.5px;color:var(--mist2)}
+.chart-body{padding:6px}
+svg{display:block;width:100%;height:auto}
+
+/* ---------- detail ---------- */
+.det{padding:14px}
+.det-empty{color:var(--mist2);font-size:12px;text-align:center;padding:60px 20px;line-height:1.9}
+.det-name{font-size:16px;font-weight:700;margin:0 0 1px}
+.det-code{font-family:"Roboto Mono",monospace;font-size:11px;color:var(--mist);letter-spacing:.1em}
+.det-sector{display:inline-block;font-size:10.5px;color:var(--mist);border:1px solid var(--ink500);padding:1px 7px;border-radius:var(--r);margin-top:7px}
+
+.gauge-lab{display:flex;justify-content:space-between;font-family:"Roboto Mono",monospace;font-size:9.5px;letter-spacing:.12em;color:var(--mist2);margin:18px 0 5px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:2px 10px;margin-top:14px;font-size:11.5px}
+.kv dt{color:var(--mist);padding:3px 0;border-bottom:1px solid var(--ink700)}
+.kv dd{margin:0;padding:3px 0;text-align:right;font-family:"Roboto Mono",monospace;border-bottom:1px solid var(--ink700)}
+.inst-row{display:grid;grid-template-columns:1fr 60px;gap:8px;align-items:center;font-size:11px;padding:3px 0}
+.inst-bar{height:5px;background:var(--ink600);border-radius:2px;overflow:hidden;margin-top:3px}
+.inst-bar i{display:block;height:100%}
+.hedge-dot{font-size:9px;letter-spacing:.05em;color:var(--mist2)}
+
+/* ---------- table ---------- */
+.tbl-wrap{margin-top:20px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th{
+  font-family:"Roboto Mono",monospace;font-size:9.5px;letter-spacing:.12em;color:var(--mist2);
+  text-align:right;padding:8px 10px;border-bottom:1px solid var(--ink500);cursor:pointer;white-space:nowrap;
+  position:sticky;top:0;background:var(--ink900)
+}
+th:first-child,th:nth-child(2){text-align:left}
+th:hover{color:var(--paper)}
+th[data-dir]::after{content:"▾";margin-left:4px;color:var(--kincha)}
+th[data-dir="asc"]::after{content:"▴"}
+td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--ink700);font-family:"Roboto Mono",monospace}
+td:first-child,td:nth-child(2){text-align:left}
+td:nth-child(2){font-family:"Zen Kaku Gothic New",sans-serif}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--ink700)}
+tbody tr.sel{background:var(--ink600)}
+.pill{display:inline-block;font-size:9.5px;padding:1px 6px;border-radius:8px;letter-spacing:.06em}
+
+.foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--ink600);font-size:11px;color:var(--mist2);line-height:1.9}
+.foot code{font-family:"Roboto Mono",monospace;color:var(--mist);background:var(--ink700);padding:1px 5px;border-radius:2px}
+@media (prefers-reduced-motion: no-preference){
+  .pt{transition:r .15s ease, opacity .15s ease}
+}
+.pt{cursor:pointer}
+
+/* ---------- 解説 ---------- */
+.guide{margin-top:44px;border-top:1px solid var(--ink500);padding-top:26px}
+.guide-h{font-family:"Zen Old Mincho",serif;font-size:19px;letter-spacing:.14em;margin:0 0 4px}
+.guide-lead{color:var(--mist);font-size:12px;margin:0 0 24px}
+.guide-sec{margin-bottom:30px}
+.guide-sec > h3{
+  font-family:"Roboto Mono",monospace;font-size:10px;letter-spacing:.2em;color:var(--kincha);
+  margin:0 0 12px;font-weight:500;border-bottom:1px solid var(--ink600);padding-bottom:7px
+}
+.guide-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.gcard{background:var(--ink800);border:1px solid var(--ink600);border-radius:var(--r);padding:12px 14px}
+.gcard h4{margin:0 0 5px;font-size:12.5px;font-weight:700}
+.gcard p{margin:0;font-size:11.5px;color:var(--mist);line-height:1.8}
+.gcard .why{display:block;margin-top:7px;padding-top:7px;border-top:1px solid var(--ink700);color:var(--mist2);font-size:11px}
+.gcard code,.guide-sec code{font-family:"Roboto Mono",monospace;font-size:11px;color:var(--paper);background:var(--ink700);padding:1px 5px;border-radius:2px}
+.gtable{width:100%;border-collapse:collapse;font-size:11.5px}
+.gtable th{position:static;background:transparent;text-align:left;font-family:"Roboto Mono",monospace;
+  font-size:9.5px;letter-spacing:.12em;color:var(--mist2);padding:6px 10px 6px 0;border-bottom:1px solid var(--ink500);cursor:default}
+.gtable td{text-align:left;font-family:"Zen Kaku Gothic New",sans-serif;padding:7px 10px 7px 0;
+  border-bottom:1px solid var(--ink700);color:var(--mist);vertical-align:top}
+.gtable td:first-child{color:var(--paper);white-space:nowrap;font-weight:500}
+.warn{border-left:2px solid var(--kincha);background:var(--ink800);padding:11px 14px;font-size:11.5px;
+  color:var(--mist);line-height:1.85;border-radius:0}
+.steps{counter-reset:s;list-style:none;padding:0;margin:0}
+.steps li{position:relative;padding:0 0 11px 34px;font-size:12px;color:var(--mist);line-height:1.75}
+.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:1px;
+  font-family:"Roboto Mono",monospace;font-size:10px;color:var(--kincha);
+  border:1px solid var(--ink500);width:20px;height:20px;display:grid;place-items:center;border-radius:50%}
+.steps b{color:var(--paper)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="hd">
+    <div>
+      <h1>需給気圧図<span class="sub">SQUEEZE PRESSURE MAP</span></h1>
+    </div>
+    <div class="hd-meta">
+      <span class="badge">個人信用ベース</span>
+      <div class="meta-item">データ日<b class="mono" id="m-calc">—</b></div>
+      <div class="meta-item">生成日<b class="mono" id="m-disc">—</b></div>
+      <div class="meta-item">対象<b class="mono" id="m-univ">56</b></div>
+    </div>
+  </div>
+</header>
+
+<!-- 市場レジーム帯：常時表示 -->
+<div class="regime" id="regime"></div>
+
+<div class="bar">
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true"  data-view="stock">銘柄別</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="sector">業種別</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="market">市場全体</button>
+  </div>
+</div>
+
+<div class="ctl" id="ctl">
+  <div class="ctl-group">
+    <span class="ctl-lab">燃料（X軸）</span>
+    <select id="sel-x">
+      <option value="fuel">総合スコア</option>
+      <option value="dtcMargin">DTC（貸株残）</option>
+      <option value="shortPnl">売り方評価損益率</option>
+      <option value="tight">株不足度</option>
+      <option value="cover5">5日残高変化率</option>
+    </select>
+  </div>
+  <div class="ctl-group">
+    <span class="ctl-lab">着火（Y軸）</span>
+    <select id="sel-y">
+      <option value="ignition">総合スコア</option>
+      <option value="hi52">52週高値まで</option>
+      <option value="atrExp">ATR拡大率</option>
+    </select>
+  </div>
+  <div class="ctl-group">
+    <span class="ctl-lab">絞り込み</span>
+    <button class="tg" aria-pressed="true"  data-flag="exThin">薄い貸株残を除外</button>
+    <button class="tg" aria-pressed="false" data-flag="emaOnly">EMA整列のみ</button>
+    <button class="tg" aria-pressed="false" data-flag="runOnly">進行中のみ</button>
+  </div>
+</div>
+
+<div class="main" id="main">
+  <div class="panel" id="chart-panel">
+    <div class="panel-hd">
+      <span class="panel-t" id="chart-t">燃料 × 着火</span>
+      <span class="panel-s" id="chart-s">等圧線＝燃料×着火の期待値。右上ほど踏み上げ圧が高い</span>
+    </div>
+    <div class="chart-body"><svg id="chart" viewBox="0 0 760 500" role="img" aria-label="燃料と着火の散布図"></svg></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hd"><span class="panel-t">個別カルテ</span><span class="panel-s" id="det-s">点を選択</span></div>
+    <div class="det" id="det"><div class="det-empty">気圧図の点、または下の表の行を<br>選ぶと内訳が出ます</div></div>
+  </div>
+</div>
+
+<div class="tbl-wrap">
+  <table id="tbl">
+    <thead><tr>
+      <th data-k="code">コード</th>
+      <th data-k="name">銘柄</th>
+      <th data-k="fuel" data-dir="desc">燃料</th>
+      <th data-k="ignition">着火</th>
+      <th data-k="pressure">気圧</th>
+      <th data-k="dtcMargin">DTC</th>
+      <th data-k="shortPnl" data-asc="1">売方損益</th>
+      <th data-k="tight">株不足</th>
+      <th data-k="cover5" data-asc="1">5日残高Δ</th>
+      <th data-k="state">状態</th>
+    </tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<section class="guide">
+  <h2 class="guide-h">使い方</h2>
+  <p class="guide-lead">踏み上げは「燃料（売り方が追い込まれている）×着火（価格が動き出す）」の掛け算でしか起きない。どちらかがゼロなら起きない。この画面はその2軸で銘柄を並べている。以下は画面の上から順の解説。</p>
+
+  <div class="guide-sec">
+    <h3>迷ったらこの順番</h3>
+    <ol class="steps">
+      <li>最上段の<b>レジーム帯</b>を見る。「逆風」なら今日は何も探さない。</li>
+      <li>銘柄別タブで、気圧図の<b>右上に浮いている朱色の点</b>を数個クリックする。</li>
+      <li>右のカルテで<b>貸株残の絶対量</b>を確認。数万株しかいないなら捨てる。</li>
+      <li><b>売り方評価損益率がマイナス</b>かを見る。プラスなら売り方はまだ余裕があるので見送り。</li>
+      <li>残ったものだけを、いつもの候補リストと突き合わせる。</li>
+    </ol>
+  </div>
+
+  <div class="guide-sec">
+    <h3>① 最上段 ｜ レジーム帯</h3>
+    <p style="font-size:11.5px;color:var(--mist);line-height:1.85;margin:0 0 12px">
+      銘柄を探す前に、<b>そもそも今日は狙いに行っていい日か</b>を判定する。
+      日証金の貸借データから日次で推計した信用評価損益率を使う。JPX公表の週次値とは水準がずれるので、
+      公表値の閾値をそのまま当てはめないこと。
+    </p>
+    <table class="gtable">
+      <thead><tr><th>指標</th><th>読み方</th></tr></thead>
+      <tbody>
+        <tr><td>売建 評価損益率</td>
+          <td>市場全体の売り方の損益。<b>マイナス＝売り方が負けている</b>＝踏み上げの土壌がある。判定の主役。</td></tr>
+        <tr><td>買建 評価損益率</td>
+          <td>買い方の損益。-10%前後まで沈むと投げが出やすく、そこからの戻りで踏み上げが起きやすい。EMA10とEMA20を併記。</td></tr>
+        <tr><td>需給スコア</td>
+          <td>プラスが大きいほど将来の売り需要が大きい＝下落圧力。買い残が売り残に対して膨らんでいる状態。</td></tr>
+        <tr><td>信用倍率</td>
+          <td>融資残 ÷ 貸株残（金額ベース）。高いほど売り方が少ない。信頼度は有効銘柄のカバレッジ。</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:11.5px;color:var(--mist);line-height:1.85;margin:14px 0 0">
+      <b>総合判定</b>：売建評価損益率が <code>-2%</code> を下回れば「追い風」、<code>+2%</code> を超えれば「逆風」、
+      間は「中立」。この閾値は暫定。履歴が60営業日たまったらσで切り直す。
+    </p>
+  </div>
+
+  <div class="guide-sec">
+    <h3>② タブ ｜ 3つのビュー</h3>
+    <table class="gtable">
+      <thead><tr><th>タブ</th><th>何のためにあるか</th></tr></thead>
+      <tbody>
+        <tr><td>銘柄別</td><td>実際にエントリー判断をする場所。ここが本番。需給の非対称性が価格に効く唯一のスケール。</td></tr>
+        <tr><td>業種別</td><td>業種全体が売られているのか、その1銘柄だけなのかを確かめる背景確認。円の大きさ＝該当銘柄数。</td></tr>
+        <tr><td>市場全体</td><td>今日そもそも狙いに行っていい日かの判定。表とカルテは非表示になる。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="guide-sec">
+    <h3>③ コントロール行 ｜ 軸と絞り込み</h3>
+    <table class="gtable">
+      <thead><tr><th>操作</th><th>何を疑うためにあるか</th></tr></thead>
+      <tbody>
+        <tr><td>燃料（X軸）</td><td>合成スコアの中身を分解する。「上位に来たのはDTCが高いだけで、売り方はまだ勝っているのでは」を確かめる。</td></tr>
+        <tr><td>着火（Y軸）</td><td>同じく分解用。52週高値までの距離とATR拡大率のどちらで稼いだスコアかを見る。</td></tr>
+        <tr><td>薄い貸株残を除外</td><td>貸株残5万株未満・DTC0.05日未満・信用倍率100倍超を落とす。母数が小さい銘柄は評価損益率も残高変化率も暴れるため。<b>初期ON</b>。</td></tr>
+        <tr><td>EMA整列のみ</td><td>順張り＋需給燃料の形に絞る。逆張りにしないための安全弁。常時ONでもいい。</td></tr>
+        <tr><td>進行中のみ</td><td>5日残高変化率が-3%未満かつATR拡大中。予測ではなく検知。新規エントリーには向かない。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="guide-sec">
+    <h3>④ 中央 ｜ 気圧図</h3>
+    <div class="guide-grid">
+      <div class="gcard"><h4>横軸 — 燃料</h4>
+        <p>売り方がどれだけ追い込まれているか。残高が多い、含み損を抱えている、株が借りにくい。右ほど多い。
+        <span class="why">燃料だけでは動かない。右下は何ヶ月も膠着する。</span></p></div>
+      <div class="gcard"><h4>縦軸 — 着火</h4>
+        <p>今まさに株価が動き出しそうか。高値が近い、値動きが荒くなった、決算が近い。上ほど強い。
+        <span class="why">着火だけなら普通の上昇。需給の後押しはない。</span></p></div>
+      <div class="gcard"><h4>曲線 — 等圧線</h4>
+        <p>燃料×着火が同じ値になる線。天気図と同じで、右上に向かうほど気圧が高い＝踏み上げ圧が高い。
+        <span class="why">同じ合計点でも中身が違うことが見える。</span></p></div>
+      <div class="gcard"><h4>点の色と印</h4>
+        <p>藍→朱で気圧の高さ。<span style="color:var(--kincha)">金色の輪</span>は買い戻しがすでに始まっている印。
+        <span class="why">見る場所は右上だけ。左半分は燃料がないので対象外。</span></p></div>
+    </div>
+  </div>
+
+  <div class="guide-sec">
+    <h3>⑤ 中央 ｜ 市場全体タブのときのグラフ</h3>
+    <p style="font-size:11.5px;color:var(--mist);line-height:1.85;margin:0">
+      信用評価損益率の推移。<span style="color:#E8503A">朱＝売建</span>、<span style="color:#3D8FD1">藍＝買建</span>。
+      ゼロラインより下はその陣営が負けている状態。売建の線が下に沈んでいくほど、市場全体として踏み上げが起きやすい地合いになる。
+      横軸は営業日。履歴が短いうちは線も短い。
+    </p>
+  </div>
+
+  <div class="guide-sec">
+    <h3>⑥ 右 ｜ 個別カルテ</h3>
+    <p style="font-size:11.5px;color:var(--mist);line-height:1.85;margin:0 0 12px">
+      気圧図の点、または表の行を選ぶと出る。3本のゲージ（燃料・着火・売り方評価損益率）、
+      主要指標、<b>信用需給の内訳</b>という並び。
+    </p>
+    <div class="guide-grid">
+      <div class="gcard"><h4>売建加重平均単価</h4>
+        <p>売り方が平均していくらで売ったか。現値がこれを上回っているほど売り方は含み損。
+        <span class="why">日々の残高増減にその日の株価を掛けて累積した推計値。</span></p></div>
+      <div class="gcard"><h4>貸株残と融資残</h4>
+        <p>貸株残＝売り方、融資残＝買い方。貸株残が融資残に近づくほど株不足で、逆日歩が付きやすい。
+        <span class="why">貸株残が薄いと他の指標も信用できない。</span></p></div>
+    </div>
+  </div>
+
+  <div class="guide-sec">
+    <h3>⑦ 最下部 ｜ 表と指標の定義</h3>
+    <p style="font-size:11.5px;color:var(--mist);line-height:1.85;margin:0 0 12px">
+      見出しをクリックで並べ替え。<code>売方損益</code> と <code>5日残高Δ</code> は
+      <b>マイナスが燃料</b>なので、初回クリックは昇順になるようにしてある。
+    </p>
+    <table class="gtable">
+      <thead><tr><th>指標</th><th>意味と符号</th></tr></thead>
+      <tbody>
+        <tr><td>DTC</td><td>貸株残高株数 ÷ 20日平均出来高。買い戻しに何日かかるか。<b>大きいほど燃料</b>。</td></tr>
+        <tr><td>売方損益</td><td>売建加重平均単価と現値から算出した売り方の評価損益率。<b>マイナス＝売り方が負けている＝燃料</b>。</td></tr>
+        <tr><td>株不足</td><td>貸株残 ÷ 融資残。1を超えると株が足りず、逆日歩が付きやすい。逆日歩そのものの代理変数。</td></tr>
+        <tr><td>5日残高Δ</td><td><code>(当日の貸株残 ÷ 5営業日前 - 1) × 100</code>。<b>マイナス＝残高減少＝買い戻し</b>。</td></tr>
+        <tr><td>気圧</td><td>燃料 × 着火 ÷ 10。単独では意味がなく、順位づけにだけ使う。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="guide-sec">
+    <h3>読み違えやすいところ</h3>
+    <div class="guide-grid">
+      <div class="gcard"><h4>機関の空売りは入っていない</h4>
+        <p>これは日証金の貸借データ＝制度信用。機関は相対貸借で株を借りるので、ここには現れない。
+        <span class="why">JPXの空売り残高報告は別データ。第2段階で追加する。</span></p></div>
+      <div class="gcard"><h4>貸株残が薄い銘柄は当てにならない</h4>
+        <p>信用倍率が数千倍の銘柄では、売り方が数千株しかいない。評価損益率が-10%でも燃料にならない。
+        <span class="why">「薄い貸株残を除外」を切るときは、この点を承知の上で。</span></p></div>
+      <div class="gcard"><h4>前日終値ベース</h4>
+        <p>日証金の貸借値段は前日終値。当日のザラ場の動きは反映されていない。
+        <span class="why">当日大きく動いた銘柄は、実際の評価損益率がもっと悪化している。</span></p></div>
+      <div class="gcard"><h4>空売りが多いのには理由がある</h4>
+        <p>売られているのは業績やバリュエーションに問題があるから。「売られすぎ」は多くの場合「正しく売られている」。
+        <span class="why">単独シグナルにせず、トレンドが出ている銘柄のタイブレーカーとして使う。</span></p></div>
+    </div>
+  </div>
+</section>
+
+<div class="foot">
+  データ: 日証金 貸借取引残高（shinyo_hyoka_v12）＋ mon2 の価格パネル。毎営業日 Colab から <code>squeeze.json</code> を更新。<br>
+  燃料＝DTC 40% + 売り方評価損益 40% + 株不足度 20%、着火＝52週高値まで 55% + ATR拡大率 45%。気圧＝燃料×着火。
+  重みは <code>WT</code> オブジェクトで調整できる。<br>
+  <b>符号規約</b>：<code>shortPnl</code> と <code>cover5</code> は<b>マイナスが燃料</b>。
+</div>
+
+</div>
+
+<script>
+/* ============================================================
+   1. データ層 — squeeze.json を読む
+   ============================================================ */
+const DATA_URL = 'squeeze.json';
+
+// --- スコアの重み（ここを変えれば燃料/着火の配分を調整できる） ---
+const WT = {
+  fuel:     { dtc: 0.40, pnl: 0.40, tight: 0.20 },
+  ignition: { hi52: 0.55, atr: 0.45 },
+  // 各指標が満点になる水準
+  cap:      { dtc: 2.0, pnl: 15, tight: 1.0, hi52: 25, atrLo: 0.85, atrHi: 1.35 },
+};
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const nz    = v => (v === null || v === undefined || Number.isNaN(v)) ? null : v;
+
+function score(s) {
+  const c = WT.cap;
+  const fDtc   = s.dtcMargin === null ? 0 : clamp(s.dtcMargin / c.dtc, 0, 1) * WT.fuel.dtc;
+  const fPnl   = s.shortPnl  === null ? 0 : clamp(-s.shortPnl / c.pnl, 0, 1) * WT.fuel.pnl;
+  const fTight = s.tight     === null ? 0 : clamp(s.tight / c.tight, 0, 1) * WT.fuel.tight;
+  s.fuel = Math.round((fDtc + fPnl + fTight) * 100);
+
+  const iHi  = s.hi52   === null ? 0 : clamp(1 - s.hi52 / c.hi52, 0, 1) * WT.ignition.hi52;
+  const iAtr = s.atrExp === null ? 0
+             : clamp((s.atrExp - c.atrLo) / (c.atrHi - c.atrLo), 0, 1) * WT.ignition.atr;
+  s.ignition = Math.round((iHi + iAtr) * 100);
+
+  s.pressure = Math.round(s.fuel * s.ignition / 10);
+  s.running  = (s.cover5 !== null && s.cover5 < -3) && (s.atrExp !== null && s.atrExp > 1.15);
+  return s;
+}
+
+let DATA = { stocks: [] };
+let MARKET = null;
+let META   = {};
+
+async function loadData() {
+  const res = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`${DATA_URL} が読めません (HTTP ${res.status})`);
+  const j = await res.json();
+  DATA   = { stocks: j.stocks.map(score) };
+  MARKET = j.market;
+  META   = { generated: j.generated, discDate: j.discDate, mode: j.mode };
+}
+
+/* ============================================================
+   2. 状態
+   ============================================================ */
+const S={view:"stock", x:"fuel", y:"ignition",
+         flags:{exThin:true, emaOnly:false, runOnly:false},
+         sortK:"fuel", sortDir:"desc", sel:null};
+
+const AXES={
+  fuel:{lab:"燃料スコア",max:100,fmt:v=>v.toFixed(0)},
+  dtcMargin:{lab:"DTC 日（貸株残÷20日平均出来高）",max:3,fmt:v=>v.toFixed(1)},
+  shortPnl:{lab:"売り方評価損益率 %（右ほど売り方が負け）",min:10,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  tight:{lab:"株不足度（貸株残÷融資残）",max:1.5,fmt:v=>v.toFixed(2)},
+  cover5:{lab:"5日残高変化率 %（右ほど買い戻し）",min:20,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  ignition:{lab:"着火スコア",max:100,fmt:v=>v.toFixed(0)},
+  hi52:{lab:"52週高値まで %",max:40,invert:true,fmt:v=>v.toFixed(0)},
+  atrExp:{lab:"ATR拡大率",min:0.7,max:1.6,fmt:v=>v.toFixed(2)}
+};
+
+/* ============================================================
+   3. 抽出
+   ============================================================ */
+function rows(){
+  return DATA.stocks.filter(s=>{
+    if(S.flags.exThin && s.thin) return false;
+    if(s[S.x]===null || s[S.y]===null) return false;
+    if(S.flags.emaOnly && !s.emaOk)    return false;
+    if(S.flags.runOnly && !s.running)  return false;
+    return true;
+  });
+}
+function sectors(){
+  const keys=["fuel","ignition","dtcMargin","shortPnl","cover5","tight"];
+  const m=new Map();
+  for(const s of rows()){
+    if(!m.has(s.sector)) m.set(s.sector,{sector:s.sector,n:0,
+      _sum:Object.fromEntries(keys.map(k=>[k,0])), _cnt:Object.fromEntries(keys.map(k=>[k,0]))});
+    const a=m.get(s.sector); a.n++;
+    for(const k of keys) if(s[k]!==null){a._sum[k]+=s[k]; a._cnt[k]++}
+  }
+  return [...m.values()].map(a=>{
+    for(const k of keys) a[k]=a._cnt[k]?+(a._sum[k]/a._cnt[k]).toFixed(2):null;
+    a.pressure=Math.round((a.fuel||0)*(a.ignition||0)/10);
+    a.name=a.sector; a.code=`n=${a.n}`;
+    delete a._sum; delete a._cnt;
+    return a;
+  });
+}
+
+/* ============================================================
+   4. 描画：気圧図
+   ============================================================ */
+const NS="http://www.w3.org/2000/svg";
+const el=(t,a={})=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n};
+const W=760,H=500,M={t:18,r:22,b:46,l:56};
+const PW=W-M.l-M.r, PH=H-M.t-M.b;
+
+function pressColor(p){          // 0..1 → 藍→朱
+  const t=clamp(p,0,1);
+  const c1=[61,143,209], c2=[232,80,58];
+  return `rgb(${c1.map((v,i)=>Math.round(v+(c2[i]-v)*t)).join(",")})`;
+}
+
+function drawChart(){
+  const svg=document.getElementById("chart");
+  svg.innerHTML="";
+  const items = S.view==="sector" ? sectors() : rows();
+  const ax=AXES[S.x], ay=AXES[S.y];
+  const xlo=ax.min??0, xhi=ax.max, ylo=ay.min??0, yhi=ay.max;
+  const X=v=>M.l+ (clamp((v-xlo)/(xhi-xlo),0,1))*PW * (ax.invert?-1:1) + (ax.invert?PW:0);
+  const Y=v=>M.t+PH- (clamp((v-ylo)/(yhi-ylo),0,1))*PH * (ay.invert?-1:1) - (ay.invert?PH:0);
+
+  // --- 等圧線（燃料×着火＝一定）: 総合スコア軸のときのみ ---
+  const g=el("g");
+  if(S.x==="fuel"&&S.y==="ignition"){
+    for(const k of [1000,2000,3000,4000,5000,6000,7000]){
+      let d="",first=true;
+      for(let fx=8;fx<=100;fx+=1.5){
+        const fy=k/fx; if(fy>100||fy<0) {first=true; continue}
+        d+= (first?"M":"L")+X(fx).toFixed(1)+","+Y(fy).toFixed(1); first=false;
+      }
+      if(d) g.appendChild(el("path",{d,fill:"none",stroke:pressColor(k/7000),
+        "stroke-width":k>=5000?1.1:.7,opacity:k>=5000?.42:.22}));
+      const ly=k/86; if(ly<=98)
+        g.appendChild(Object.assign(el("text",{x:X(86)+6,y:Y(ly)+3,fill:pressColor(k/7000),
+          "font-size":8.5,"font-family":"Roboto Mono, monospace",opacity:.6}),{textContent:k/10}));
+    }
+  }
+  svg.appendChild(g);
+
+  // --- 軸 ---
+  const grid=el("g");
+  for(let i=0;i<=4;i++){
+    const gx=M.l+PW*i/4, gy=M.t+PH*i/4;
+    grid.appendChild(el("line",{x1:gx,y1:M.t,x2:gx,y2:M.t+PH,stroke:"#2E3B52","stroke-width":.6,opacity:.55}));
+    grid.appendChild(el("line",{x1:M.l,y1:gy,x2:M.l+PW,y2:gy,stroke:"#2E3B52","stroke-width":.6,opacity:.55}));
+    const xv=xlo+(xhi-xlo)*(ax.invert?1-i/4:i/4), yv=ylo+(yhi-ylo)*(ay.invert?i/4:1-i/4);
+    grid.appendChild(Object.assign(el("text",{x:gx,y:M.t+PH+16,fill:"#5D6E88","font-size":9.5,
+      "text-anchor":"middle","font-family":"Roboto Mono, monospace"}),{textContent:ax.fmt(xv)}));
+    grid.appendChild(Object.assign(el("text",{x:M.l-9,y:gy+3.5,fill:"#5D6E88","font-size":9.5,
+      "text-anchor":"end","font-family":"Roboto Mono, monospace"}),{textContent:ay.fmt(yv)}));
+  }
+  svg.appendChild(grid);
+  svg.appendChild(Object.assign(el("text",{x:M.l+PW/2,y:H-10,fill:"#8798B0","font-size":10.5,
+    "text-anchor":"middle","letter-spacing":".1em"}),{textContent:"燃料 →  "+ax.lab}));
+  svg.appendChild(Object.assign(el("text",{x:14,y:M.t+PH/2,fill:"#8798B0","font-size":10.5,
+    "text-anchor":"middle","letter-spacing":".1em",transform:`rotate(-90 14 ${M.t+PH/2})`}),
+    {textContent:"着火 →  "+ay.lab}));
+
+  // --- 点 ---
+  const pts=el("g");
+  for(const s of items){
+    const cx=X(s[S.x]), cy=Y(s[S.y]);
+    const r = S.view==="sector" ? clamp(4+s.n*1.1,5,14) : (s.running?7:5);
+    const c = pressColor(s.pressure/900);
+    const grp=el("g",{class:"pt",tabindex:"0",role:"button","aria-label":s.name});
+    if(s.running) grp.appendChild(el("circle",{cx,cy,r:r+4,fill:"none",stroke:"#E0A335","stroke-width":1,opacity:.75}));
+    grp.appendChild(el("circle",{cx,cy,r,fill:c,opacity:.88,stroke:"#0F1521","stroke-width":1}));
+    if(s.pressure>420||S.view==="sector")
+      grp.appendChild(Object.assign(el("text",{x:cx+r+4,y:cy+3.4,fill:"#E6ECF2","font-size":9.5}),
+        {textContent:S.view==="sector"?s.sector:s.name}));
+    grp.appendChild(Object.assign(el("title"),{textContent:
+      `${s.name}\n燃料 ${s.fuel} / 着火 ${s.ignition} / 気圧 ${s.pressure}`}));
+    if(S.view!=="sector"){
+      grp.addEventListener("click",()=>select(s.code));
+      grp.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();select(s.code)}});
+    }
+    pts.appendChild(grp);
+  }
+  svg.appendChild(pts);
+}
+
+/* ============================================================
+   5. 市場全体ビュー
+   ============================================================ */
+function drawMarket(){
+  const svg=document.getElementById("chart"); svg.innerHTML="";
+  const se=MARKET.series.filter(r=>r.kai!==null||r.uri!==null);
+  if(!se.length){svg.appendChild(Object.assign(el("text",{x:W/2,y:H/2,fill:"#8798B0",
+    "font-size":12,"text-anchor":"middle"}),{textContent:"履歴データがまだありません"}));return}
+
+  const vals=se.flatMap(r=>[r.kai,r.uri]).filter(v=>v!==null);
+  const lo=Math.min(...vals,0)-2, hi=Math.max(...vals,0)+2;
+  const n=se.length;
+  const x=i=>M.l+PW*i/Math.max(n-1,1), y=v=>M.t+PH-(v-lo)/(hi-lo)*PH;
+
+  // ゼロライン（この上下で売り方/買い方の勝ち負けが分かれる）
+  svg.appendChild(el("rect",{x:M.l,y:M.t,width:PW,height:y(0)-M.t,fill:"#3D8FD1",opacity:.06}));
+  svg.appendChild(el("rect",{x:M.l,y:y(0),width:PW,height:M.t+PH-y(0),fill:"#E8503A",opacity:.06}));
+  svg.appendChild(el("line",{x1:M.l,y1:y(0),x2:M.l+PW,y2:y(0),stroke:"#5D6E88","stroke-width":1}));
+
+  for(let i=0;i<=4;i++){
+    const gy=M.t+PH*i/4, gv=hi-(hi-lo)*i/4;
+    svg.appendChild(el("line",{x1:M.l,y1:gy,x2:M.l+PW,y2:gy,stroke:"#2E3B52","stroke-width":.6,opacity:.4}));
+    svg.appendChild(Object.assign(el("text",{x:M.l-9,y:gy+3.5,fill:"#5D6E88","font-size":9.5,
+      "text-anchor":"end","font-family":"Roboto Mono, monospace"}),{textContent:gv.toFixed(0)}));
+  }
+  const step=Math.max(1,Math.ceil(n/8));
+  for(let i=0;i<n;i+=step){
+    svg.appendChild(Object.assign(el("text",{x:x(i),y:M.t+PH+17,fill:"#5D6E88","font-size":9.5,
+      "text-anchor":"middle","font-family":"Roboto Mono, monospace"}),
+      {textContent:se[i].d.slice(5).replace("-","/")}));
+  }
+
+  const line=(key,color,label)=>{
+    let d="",first=true;
+    se.forEach((r,i)=>{ if(r[key]===null){first=true;return}
+      d+=(first?"M":"L")+x(i).toFixed(1)+","+y(r[key]).toFixed(1); first=false; });
+    if(!d) return;
+    svg.appendChild(el("path",{d,fill:"none",stroke:color,"stroke-width":1.8}));
+    const last=[...se].reverse().find(r=>r[key]!==null);
+    const li=se.lastIndexOf(last);
+    svg.appendChild(el("circle",{cx:x(li),cy:y(last[key]),r:4,fill:color}));
+    svg.appendChild(Object.assign(el("text",{x:x(li)-8,y:y(last[key])-9,fill:color,"font-size":11,
+      "text-anchor":"end","font-family":"Roboto Mono, monospace"}),
+      {textContent:label+" "+last[key].toFixed(2)+"%"}));
+  };
+  line("kai","#3D8FD1","買建");
+  line("uri","#E8503A","売建");
+
+  svg.appendChild(Object.assign(el("text",{x:M.l+PW/2,y:H-8,fill:"#8798B0","font-size":10.5,
+    "text-anchor":"middle"}),{textContent:"信用評価損益率の推移（日次推計・主力銘柄ベース）"}));
+}
+
+function drawRegime(){
+  const r=MARKET;
+  const uri=r.uriPnl, kai=r.kaiPnl;
+  // 追い風 = 市場全体で売り方が負けている / 逆風 = 売り方が勝っている
+  const v = uri===null ? ["データなし","var(--mist)","—"]
+          : uri < -2   ? ["追い風","var(--shu)","銘柄別スコア上位を取りに行ってよい局面"]
+          : uri >  2   ? ["逆風","var(--ai)","候補が出ても原則見送り"]
+                       : ["中立","var(--mist)","様子見。個別の燃料が厚いものだけ"];
+  const f=(x,d=2)=>x===null?"—":(x>0?"+":"")+x.toFixed(d);
+  document.getElementById("regime").innerHTML=`
+    <div class="regime-cell regime-verdict">
+      <div class="regime-lab">MARKET REGIME</div>
+      <div class="verdict-tag" style="color:${v[1]}">${v[0]}</div>
+      <div class="regime-note">${v[2]}</div>
+    </div>
+    <div class="regime-cell"><div class="regime-lab">売建 評価損益率</div>
+      <div class="regime-val" style="color:${uri<0?"var(--shu)":"var(--ai)"}">${f(uri)}<span style="font-size:11px;color:var(--mist2)">%</span></div>
+      <div class="regime-note">マイナス＝売り方が負け</div></div>
+    <div class="regime-cell"><div class="regime-lab">買建 評価損益率</div>
+      <div class="regime-val">${f(kai)}<span style="font-size:11px;color:var(--mist2)">%</span></div>
+      <div class="regime-note">EMA10 ${f(r.kaiPnlEma10)} / EMA20 ${f(r.kaiPnlEma20)}</div></div>
+    <div class="regime-cell"><div class="regime-lab">需給スコア</div>
+      <div class="regime-val">${f(r.jukyu,1)}<span style="font-size:11px;color:var(--mist2)">%</span></div>
+      <div class="regime-note">EMA20 ${f(r.jukyuEma20,1)}</div></div>
+    <div class="regime-cell"><div class="regime-lab">信用倍率</div>
+      <div class="regime-val">${r.bairitsu===null?"—":r.bairitsu.toFixed(2)}<span style="font-size:11px;color:var(--mist2)">倍</span></div>
+      <div class="regime-note">信頼度 ${r.shinrai===null?"—":r.shinrai.toFixed(0)}%</div></div>`;
+}
+
+function bar(v,max,color){
+  const w=clamp(v/max,0,1)*100;
+  return `<div class="inst-bar"><i style="width:${w}%;background:${color}"></i></div>`;
+}
+
+function drawDetail(){
+  const box=document.getElementById("det"), tag=document.getElementById("det-s");
+  const s=DATA.stocks.find(x=>x.code===S.sel);
+  if(!s){box.innerHTML='<div class="det-empty">気圧図の点、または下の表の行を<br>選ぶと内訳が出ます</div>';
+         tag.textContent="点を選択";return}
+  tag.textContent=s.running?"買い戻し進行中":(s.thin?"参考値":"待機");
+  const f=(v,d=2,suf="")=>v===null?"—":v.toFixed(d)+suf;
+  const sg=(v,d=2,suf="")=>v===null?"—":(v>0?"+":"")+v.toFixed(d)+suf;
+  const pnlLoss=s.shortPnl!==null&&s.shortPnl<0;
+  box.innerHTML=`
+    <div class="det-code">${s.code}　${f(s.px,1)}円</div>
+    <h2 class="det-name">${s.name}</h2>
+    <span class="det-sector">${s.sector}</span>
+    ${s.thin?'<span class="det-sector" style="border-color:var(--kincha);color:var(--kincha)">貸株残が薄い</span>':''}
+
+    <div class="gauge-lab"><span>FUEL 燃料</span><span>${s.fuel}</span></div>
+    ${bar(s.fuel,100,"var(--shu)")}
+    <div class="gauge-lab"><span>IGNITION 着火</span><span>${s.ignition}</span></div>
+    ${bar(s.ignition,100,"var(--kincha)")}
+    <div class="gauge-lab"><span>売り方評価損益率</span>
+      <span style="color:${pnlLoss?"var(--shu)":"var(--ai)"}">${sg(s.shortPnl,2,"%")}</span></div>
+    ${bar(s.shortPnl===null?0:10-s.shortPnl,30,pnlLoss?"var(--shu)":"var(--ai)")}
+
+    <dl class="kv">
+      <dt>DTC（貸株残）</dt><dd>${f(s.dtcMargin)} 日</dd>
+      <dt>株不足度</dt><dd>${f(s.tight)}</dd>
+      <dt>5日残高変化率</dt><dd style="color:${s.cover5!==null&&s.cover5<0?"var(--shu)":"var(--mist)"}">${sg(s.cover5,1,"%")}</dd>
+      <dt>52週高値まで</dt><dd>${f(s.hi52,1,"%")}</dd>
+      <dt>ATR拡大率</dt><dd>${f(s.atrExp)}</dd>
+      <dt>EMA整列</dt><dd>${s.emaOk?"○":"—"}</dd>
+    </dl>
+
+    <div class="gauge-lab" style="margin-bottom:8px"><span>信用需給の内訳</span><span>${s.kyokumen||""}</span></div>
+    <dl class="kv" style="margin-top:0">
+      <dt>貸株残高（売り方）</dt><dd>${s.kashi===null?"—":(s.kashi/1e4).toFixed(1)+"万株"}</dd>
+      <dt>融資残高（買い方）</dt><dd>${s.yushi===null?"—":(s.yushi/1e4).toFixed(1)+"万株"}</dd>
+      <dt>売建加重平均単価</dt><dd>${f(s.uriTanka,1)} 円</dd>
+      <dt>信用倍率</dt><dd>${f(s.bairitsu)} 倍</dd>
+      <dt>需給スコア</dt><dd>${sg(s.jukyu,1,"%")}</dd>
+    </dl>
+    <div style="font-size:10.5px;color:var(--mist2);margin-top:10px;line-height:1.7">
+      日証金の貸借データ（個人の信用売り）。機関の空売り残高は含まれない。
+    </div>`;
+}
+
+function drawTable(){
+  const isSec=S.view==="sector";
+  const data=(isSec?sectors():rows()).slice().sort((a,b)=>{
+    const av=a[S.sortK], bv=b[S.sortK];
+    if(av===null&&bv===null) return 0;
+    if(av===null) return 1;
+    if(bv===null) return -1;
+    const c = typeof av==="string" ? String(av).localeCompare(String(bv)) : av-bv;
+    return S.sortDir==="asc"?c:-c;
+  });
+  const f=(v,d=2)=>v===null||v===undefined?"—":v.toFixed(d);
+  const sg=(v,d=1)=>v===null||v===undefined?"—":(v>0?"+":"")+v.toFixed(d);
+  document.getElementById("tbody").innerHTML=data.map(s=>{
+    const state = isSec ? "" : (s.running
+      ? '<span class="pill" style="background:rgba(224,163,53,.18);color:var(--kincha)">進行中</span>'
+      : s.emaOk ? '<span class="pill" style="background:rgba(79,168,139,.15);color:var(--midori)">EMA整列</span>' : "—");
+    return `<tr data-code="${s.code}" class="${s.code===S.sel?"sel":""}">
+      <td style="color:var(--mist2)">${s.code}</td>
+      <td>${s.name}</td>
+      <td style="color:${pressColor(s.fuel/100)}">${s.fuel}</td>
+      <td>${s.ignition}</td>
+      <td><b>${s.pressure}</b></td>
+      <td>${f(s.dtcMargin)}</td>
+      <td style="color:${s.shortPnl<0?"var(--shu)":"var(--ai)"}">${sg(s.shortPnl,2)}</td>
+      <td>${f(s.tight)}</td>
+      <td style="color:${s.cover5!==null&&s.cover5<0?"var(--shu)":"var(--mist)"}">${sg(s.cover5)}</td>
+      <td style="text-align:left">${state}</td></tr>`}).join("");
+  document.querySelectorAll("#tbody tr").forEach(tr=>{
+    if(!isSec) tr.addEventListener("click",()=>select(tr.dataset.code));
+  });
+  document.querySelectorAll("#tbl th").forEach(th=>{
+    th.removeAttribute("data-dir");
+    if(th.dataset.k===S.sortK) th.setAttribute("data-dir",S.sortDir);
+  });
+  document.getElementById("m-univ").textContent=data.length;
+}
+
+function select(code){S.sel=code;drawDetail();drawTable();}
+
+/* ============================================================
+   7. 描画統括 + イベント
+   ============================================================ */
+function render(){
+  const isMkt=S.view==="market";
+  document.getElementById("ctl").style.display=isMkt?"none":"flex";
+  document.querySelector(".main").style.gridTemplateColumns=isMkt?"1fr":"";
+  document.querySelectorAll(".main .panel")[1].style.display=isMkt?"none":"";
+  document.querySelector(".tbl-wrap").style.display=isMkt?"none":"";
+  document.getElementById("chart-t").textContent =
+    isMkt?"市場レジーム推移" : S.view==="sector"?"業種別 燃料 × 着火":"燃料 × 着火";
+  document.getElementById("chart-s").textContent =
+    isMkt?"70%ile超＝売り方が積み上がった状態。ここでだけ銘柄別スコアを取りに行く"
+        : S.view==="sector"?"円の大きさ＝該当銘柄数。業種の資金移動を見る"
+        : "等圧線＝燃料×着火の期待値。右上ほど踏み上げ圧が高い";
+  isMkt?drawMarket():drawChart();
+  if(!isMkt){drawTable();drawDetail();}
+}
+
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected","false"));
+  b.setAttribute("aria-selected","true"); S.view=b.dataset.view; S.sel=null; render();
+}));
+document.getElementById("sel-x").addEventListener("change",e=>{S.x=e.target.value;render()});
+document.getElementById("sel-y").addEventListener("change",e=>{S.y=e.target.value;render()});
+document.querySelectorAll(".tg").forEach(b=>b.addEventListener("click",()=>{
+  const on=b.getAttribute("aria-pressed")==="true";
+  b.setAttribute("aria-pressed",String(!on)); S.flags[b.dataset.flag]=!on; render();
+}));
+document.querySelectorAll("#tbl th").forEach(th=>th.addEventListener("click",()=>{
+  const k=th.dataset.k;
+  if(S.sortK===k) S.sortDir=S.sortDir==="desc"?"asc":"desc";
+  else {S.sortK=k; S.sortDir=th.dataset.asc?"asc":"desc"}
+  drawTable();
+}));
+
+(async()=>{
+  const det=document.getElementById("det");
+  det.innerHTML='<div class="det-empty">読み込み中…</div>';
+  try{
+    await loadData();
+  }catch(e){
+    document.getElementById("regime").innerHTML=
+      `<div class="regime-cell regime-verdict"><div class="regime-lab">ERROR</div>
+       <div class="verdict-tag" style="color:var(--kincha)">読み込み失敗</div></div>
+       <div class="regime-cell"><div class="regime-note" style="font-size:11.5px;line-height:1.8">
+       ${e.message}<br>Colabの Cell S2 を実行して squeeze.json を公開してください。
+       ローカルで開いている場合は file:// では fetch が使えません。</div></div>`;
+    det.innerHTML='<div class="det-empty">データを読み込めませんでした</div>';
+    document.getElementById("chart").innerHTML="";
+    return;
+  }
+  document.getElementById("m-calc").textContent=META.discDate||"—";
+  document.getElementById("m-disc").textContent=(META.generated||"").slice(0,10)||"—";
+  drawRegime();
+  render();
+})();
+</script>
+</body>
+</html>
