@@ -223,6 +223,9 @@ tbody tr.sel{background:var(--ink600)}
       <option value="dtcLong">DTC（買い方）</option>
       <option value="jukyu">需給スコア</option>
       <option value="bairitsu">信用倍率</option>
+      <option value="rotation">回転日数（融資）</option>
+      <option value="flowShort">当日フロー（売）</option>
+      <option value="flowLong">当日フロー（買）</option>
       <option value="netZanDtc">差引残（対出来高）</option>
       <option value="cover20">20日残高変化率（売）</option>
       <option value="cover5Long">5日残高変化率（買）</option>
@@ -411,6 +414,8 @@ tbody tr.sel{background:var(--ink600)}
         <tr><td>信用倍率</td><td>融資残 ÷ 貸株残（金額ベース）。<b>低いほど売り方が多い</b>。1倍を割ると貸株残が融資残を上回る。数百倍以上は売り方がほぼいない銘柄で、他の指標も当てにならない。</td></tr>
         <tr><td>需給</td><td>需給スコア。プラスが大きいほど将来の売り需要（買い方の手仕舞い）が大きく下落圧力。マイナスは将来の買い需要が大きく上昇圧力。</td></tr>
         <tr><td>差引残</td><td>貸株残 − 融資残。プラスで株不足。出来高で割った値も併記していて、こちらは「何日分の株が足りないか」。</td></tr>
+        <tr><td>回転日数</td><td>融資残高が1回転するのに要する日数（日証金公表）。<b>短いほど短期の売買が激しい</b>＝値動きが荒れやすい。長いと塩漬けが多く、戻り売りが重い。</td></tr>
+        <tr><td>当日フロー</td><td><code>(新規 - 返済) ÷ 残高</code>。その日1日でどちらに動いたか。<b>売り方がマイナス＝当日買い戻しが出た</b>。5日・20日の変化率より反応が早く、初動の検知に使える。</td></tr>
         <tr><td>残高変化率</td><td>カルテでは 5日 / 20日 を併記。<b>5日が急減して20日は横ばい</b>なら直近で買い戻しが始まったところ。両方マイナスなら手仕舞いが続いている。</td></tr>
         <tr><td>気圧</td><td>燃料 × 着火 ÷ 10。単独では意味がなく、順位づけにだけ使う。</td></tr>
       </tbody>
@@ -509,6 +514,9 @@ const AXES={
   dtcLong:{lab:"DTC 買い方 日",max:12,fmt:v=>v.toFixed(1)},
   jukyu:{lab:"需給スコア %",min:-100,max:100,fmt:v=>v.toFixed(0)},
   bairitsu:{lab:"信用倍率 倍（右ほど売り方が少ない）",max:20,fmt:v=>v.toFixed(1)},
+  rotation:{lab:"融資 残高回転日数",max:30,fmt:v=>v.toFixed(0)},
+  flowShort:{lab:"当日フロー 売り方 %（右ほど買い戻し）",min:15,max:-15,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  flowLong:{lab:"当日フロー 買い方 %",min:-15,max:15,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
   netZanDtc:{lab:"差引残 ÷ 20日平均出来高（右で株不足）",min:-8,max:2,fmt:v=>v.toFixed(1)},
   cover20:{lab:"20日残高変化率 売り方 %",min:40,max:-40,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
   cover5Long:{lab:"5日残高変化率 買い方 %",min:20,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
@@ -782,6 +790,8 @@ function drawDetail(){
       <dt>売り方シェア</dt><dd>${f(s.tight,3)}</dd>
       <dt>残高変化率 売り方</dt><dd style="color:${s.cover5!==null&&s.cover5<0?"var(--shu)":"var(--mist)"}">${sg(s.cover5,1,"%")} <span style="color:var(--mist2)">/ ${sg(s.cover20,1,"%")}</span></dd>
       <dt>残高変化率 買い方</dt><dd>${sg(s.cover5Long,1,"%")} <span style="color:var(--mist2)">/ ${sg(s.cover20Long,1,"%")}</span></dd>
+      <dt>当日フロー 売り方</dt><dd style="color:${s.flowShort!==null&&s.flowShort<0?"var(--shu)":"var(--mist)"}">${sg(s.flowShort,2,"%")}</dd>
+      <dt>当日フロー 買い方</dt><dd>${sg(s.flowLong,2,"%")}</dd>
       <dt>52週高値まで</dt><dd>${f(s.hi52,1,"%")}</dd>
       <dt>ATR拡大率</dt><dd>${f(s.atrExp)}</dd>
       <dt>EMA整列</dt><dd>${s.emaOk?"○":"—"}</dd>
@@ -793,7 +803,9 @@ function drawDetail(){
       <dt>融資残高（買い方）</dt><dd>${s.yushi===null?"—":(s.yushi/1e4).toFixed(1)+"万株"}</dd>
       <dt>売建加重平均単価</dt><dd>${f(s.uriTanka,1)} 円</dd>
       <dt>買建加重平均単価</dt><dd>${f(s.kaiTanka,1)} 円</dd>
-      <dt>買い方評価損益率</dt><dd style="color:${s.longPnl<0?"var(--kincha)":"var(--midori)"}">${sg(s.longPnl,2,"%")}</dd>
+      <dt>売り方 評価損益率</dt><dd style="color:${pnlLoss?"var(--shu)":"var(--ai)"}">${sg(s.shortPnl,2,"%")}</dd>
+      <dt>買い方 評価損益率</dt><dd style="color:${s.longPnl<0?"var(--kincha)":"var(--midori)"}">${sg(s.longPnl,2,"%")}</dd>
+      <dt>融資 残高回転日数</dt><dd>${f(s.rotation,1)} 日</dd>
       <dt>信用倍率</dt><dd>${f(s.bairitsu)} 倍</dd>
       <dt>需給スコア</dt><dd>${sg(s.jukyu,1,"%")}</dd>
       <dt>差引残（貸株−融資）</dt><dd style="color:${s.netZan>0?"var(--shu)":"var(--mist)"}">${s.netZan===null?"—":(s.netZan/1e4).toFixed(1)+"万株"}</dd>
