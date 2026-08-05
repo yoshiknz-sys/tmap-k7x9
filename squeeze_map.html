@@ -121,6 +121,12 @@ svg{display:block;width:100%;height:auto}
 .inst-row{display:grid;grid-template-columns:1fr 60px;gap:8px;align-items:center;font-size:11px;padding:3px 0}
 .inst-bar{height:5px;background:var(--ink600);border-radius:2px;overflow:hidden;margin-top:3px}
 .inst-bar i{display:block;height:100%}
+.sec-hd{
+  display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  margin:20px 0 2px;padding-bottom:5px;border-bottom:1px solid var(--ink500);
+  font-size:12px;font-weight:700;letter-spacing:.06em;
+}
+.sec-hd span{font-family:"Roboto Mono",monospace;font-size:9.5px;font-weight:400;color:var(--kincha);letter-spacing:.06em}
 .hedge-dot{font-size:9px;letter-spacing:.05em;color:var(--mist2)}
 
 /* ---------- table ---------- */
@@ -149,6 +155,23 @@ tbody tr.sel{background:var(--ink600)}
   .pt{transition:r .15s ease, opacity .15s ease}
 }
 .pt{cursor:pointer}
+
+/* ---------- ツールチップ ---------- */
+#tip{
+  position:fixed;z-index:200;max-width:320px;pointer-events:none;opacity:0;
+  background:var(--ink600);border:1px solid var(--mist2);border-radius:var(--r);
+  padding:10px 12px;font-size:11.5px;line-height:1.75;color:var(--paper);
+  box-shadow:0 8px 28px rgba(0,0,0,.55);
+}
+#tip.on{opacity:1}
+#tip b{color:var(--kincha);display:block;margin-bottom:3px;font-size:12px}
+#tip .f{font-family:"Roboto Mono",monospace;font-size:10.5px;color:var(--mist);
+  display:block;margin-top:5px;padding-top:5px;border-top:1px solid var(--ink500)}
+[data-tip]{cursor:help}
+th[data-tip]{text-decoration:underline dotted var(--ink500);text-underline-offset:3px}
+dt[data-tip]{border-bottom-style:dashed}
+@media (prefers-reduced-motion: no-preference){#tip{transition:opacity .12s ease}}
+
 
 /* ---------- 解説 ---------- */
 .guide{margin-top:44px;border-top:1px solid var(--ink500);padding-top:26px}
@@ -182,6 +205,7 @@ tbody tr.sel{background:var(--ink600)}
 </style>
 </head>
 <body>
+<div id="tip" role="tooltip"></div>
 <div class="wrap">
 
 <header>
@@ -190,10 +214,11 @@ tbody tr.sel{background:var(--ink600)}
       <h1>需給気圧図<span class="sub">SQUEEZE PRESSURE MAP</span></h1>
     </div>
     <div class="hd-meta">
-      <span class="badge">個人信用ベース</span>
-      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v1.5</span>
+      <span class="badge">機関＋個人</span>
+      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.0</span>
       <div class="meta-item">データ日<b class="mono" id="m-calc">—</b></div>
-      <div class="meta-item">生成日<b class="mono" id="m-disc">—</b></div>
+      <div class="meta-item">機関データ<b class="mono" id="m-inst">—</b></div>
+      <div class="meta-item">生成日<b class="mono" id="m-gen">—</b></div>
       <div class="meta-item">対象<b class="mono" id="m-univ">56</b></div>
     </div>
   </div>
@@ -215,36 +240,42 @@ tbody tr.sel{background:var(--ink600)}
   <div class="ctl-group">
     <span class="ctl-lab">燃料（X軸）</span>
     <select id="sel-x">
-      <option value="fuel">総合スコア</option>
-      <option value="dtcMargin">DTC（売り方）</option>
-      <option value="shortPnl">売り方評価損益率</option>
-      <option value="tight">売り方シェア</option>
-      <option value="cover5">5日残高変化率</option>
-      <option value="longPnl">買い方評価損益率</option>
-      <option value="dtcLong">DTC（買い方）</option>
-      <option value="jukyu">需給スコア</option>
-      <option value="bairitsu">信用倍率</option>
-      <option value="rotation">回転日数（融資）</option>
-      <option value="flowShort">当日フロー（売）</option>
-      <option value="flowLong">当日フロー（買）</option>
-      <option value="netZanDtc">差引残（対出来高）</option>
-      <option value="cover20">20日残高変化率（売）</option>
-      <option value="cover5Long">5日残高変化率（買）</option>
+      <optgroup label="総合">
+        <option value="fuel">燃料スコア</option>
+      </optgroup>
+      <optgroup label="機関ショート（JPX）">
+        <option value="dtcInst">機関DTC</option>
+        <option value="instRatio">機関残高割合</option>
+        <option value="shortPnlInst">機関の評価損益率</option>
+        <option value="hedge">ヘッジ度</option>
+        <option value="coverInst5">機関残高5日変化率</option>
+        <option value="instN">報告機関数</option>
+      </optgroup>
+      <optgroup label="個人信用（日証金）">
+        <option value="shortPnl">売り方評価損益率</option>
+        <option value="longPnl">買い方評価損益率</option>
+        <option value="bairitsu">信用倍率</option>
+        <option value="tight">売り方シェア</option>
+        <option value="jukyu">需給スコア</option>
+        <option value="flowShort">当日フロー</option>
+        <option value="rotation">回転日数</option>
+      </optgroup>
     </select>
   </div>
   <div class="ctl-group">
     <span class="ctl-lab">着火（Y軸）</span>
     <select id="sel-y">
-      <option value="ignition">総合スコア</option>
+      <option value="ignition">着火スコア</option>
       <option value="hi52">52週高値まで</option>
       <option value="atrExp">ATR拡大率</option>
-      <option value="shortPnl">売り方評価損益率</option>
-      <option value="longPnl">買い方評価損益率</option>
+      <option value="shortPnlInst">機関の評価損益率</option>
+      <option value="shortPnl">個人 売り方評価損益率</option>
+      <option value="longPnl">個人 買い方評価損益率</option>
     </select>
   </div>
   <div class="ctl-group">
     <span class="ctl-lab">絞り込み</span>
-    <button class="tg" aria-pressed="true"  data-flag="exThin">薄い貸株残を除外</button>
+    <button class="tg" aria-pressed="true"  data-flag="exNoInst" data-tip="機関の空売り残高報告がない銘柄を隠す。0.5%に達していない＝機関の売りが溜まっていない、という情報でもある">機関データなしを除外</button>
     <button class="tg" aria-pressed="false" data-flag="emaOnly">EMA整列のみ</button>
     <button class="tg" aria-pressed="false" data-flag="runOnly">進行中のみ</button>
   </div>
@@ -270,16 +301,16 @@ tbody tr.sel{background:var(--ink600)}
     <thead><tr>
       <th data-k="code">コード</th>
       <th data-k="name">銘柄</th>
-      <th data-k="fuel" data-dir="desc">燃料</th>
-      <th data-k="ignition">着火</th>
-      <th data-k="pressure">気圧</th>
-      <th data-k="dtcMargin" title="貸株残 ÷ 20日平均出来高。買い戻しに要する日数">DTC</th>
-      <th data-k="shortPnl" data-asc="1" title="売り方の評価損益率。マイナス＝売り方が負けている＝燃料">売方損益</th>
-      <th data-k="longPnl" data-asc="1" title="買い方の評価損益率。マイナス＝買い方が投げやすい">買方損益</th>
-      <th data-k="tight" title="売り方シェア = 貸株残 ÷ (貸株残＋融資残)。0.5超で株不足">売方比</th>
-      <th data-k="bairitsu" data-asc="1">信用倍率</th>
-      <th data-k="jukyu" title="需給スコア。プラスが大きいほど将来の売り需要が大きく下落圧力">需給</th>
-      <th data-k="cover5" data-asc="1" title="貸株残の5営業日変化率。マイナス＝残高減＝買い戻し">5日残高Δ</th>
+      <th data-k="fuel" data-dir="desc" data-tip="fuel">燃料</th>
+      <th data-k="ignition" data-tip="ignition">着火</th>
+      <th data-k="pressure" data-tip="pressure">気圧</th>
+      <th data-k="dtcInst" data-tip="dtcInst">機関DTC</th>
+      <th data-k="instRatio" data-tip="instRatio">機関比率</th>
+      <th data-k="instN" data-tip="instN">機関数</th>
+      <th data-k="hedge" data-asc="1" data-tip="hedge">ヘッジ度</th>
+      <th data-k="shortPnlInst" data-asc="1" data-tip="shortPnlInst">機関損益</th>
+      <th data-k="coverInst5" data-asc="1" data-tip="coverInst5">機関5日Δ</th>
+      <th data-k="shortPnl" data-asc="1" data-tip="shortPnl">個人売方</th>
       <th data-k="state">状態</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
@@ -288,53 +319,67 @@ tbody tr.sel{background:var(--ink600)}
 
 <section class="guide">
   <h2 class="guide-h">使い方</h2>
-  <p class="guide-lead">踏み上げは「燃料（売り方が追い込まれている）×着火（価格が動き出す）」の掛け算でしか起きない。どちらかがゼロなら起きない。この画面はその2軸で銘柄を並べている。以下は画面の上から順の解説。</p>
+  <p class="guide-lead">踏み上げは「燃料（売り方が追い込まれている）×着火（価格が動き出す）」の掛け算でしか起きない。どちらかがゼロなら起きない。以下は画面の上から順の解説。<b>表の見出しやカルテの項目名にマウスを載せると、その場で用語の説明が出る。</b></p>
 
   <div class="guide-sec">
     <h3>迷ったらこの順番</h3>
     <ol class="steps">
       <li>最上段の<b>レジーム帯</b>を見る。「逆風」なら今日は何も探さない。</li>
       <li>銘柄別タブで、気圧図の<b>右上に浮いている朱色の点</b>を数個クリックする。</li>
-      <li>右のカルテで<b>貸株残の絶対量</b>を確認。数万株しかいないなら捨てる。</li>
-      <li><b>売り方評価損益率がマイナス</b>かを見る。プラスなら売り方はまだ余裕があるので見送り。</li>
-      <li>残ったものだけを、いつもの候補リストと突き合わせる。</li>
+      <li>カルテの<b>ヘッジ度</b>を確認。0.85以上なら裁定・ヘッジ主体なので捨てる。</li>
+      <li><b>機関の評価損益率がマイナス</b>かを見る。プラスなら売り方はまだ勝っているので見送り。</li>
+      <li>残ったものを、いつものMON2候補リストと突き合わせる。</li>
     </ol>
+  </div>
+
+  <div class="guide-sec">
+    <h3>データの出どころと日付</h3>
+    <table class="gtable">
+      <thead><tr><th>層</th><th>出所</th><th>ラグ</th><th>役割</th></tr></thead>
+      <tbody>
+        <tr><td>機関ショート</td><td>JPX 空売り残高報告（0.5%以上）</td><td><b>2営業日</b></td>
+          <td><b>燃料</b>。数週間〜数ヶ月かけて積み上がるので2日のラグは問題にならない。</td></tr>
+        <tr><td>個人信用</td><td>日証金 貸借取引残高</td><td>当日</td>
+          <td>補助。貸株残は品貸分だけで中央値0.00日と薄く、燃料の判断には使えない。表示のみ。</td></tr>
+        <tr><td>価格</td><td>yfinance</td><td>当日</td><td><b>着火</b>。52週高値までの距離とATR拡大率。</td></tr>
+      </tbody>
+    </table>
+    <div class="warn" style="margin-top:14px">
+      機関ショートと個人信用は<b>日付がずれる</b>。画面右上に両方の日付を出しているので、
+      「今まさに買い戻されている」と読むときは必ず日付を確認すること。
+      機関データで初動を検知するのは2日遅れなので原理的に無理がある。
+    </div>
   </div>
 
   <div class="guide-sec">
     <h3>① 最上段 ｜ レジーム帯</h3>
     <p style="font-size:11.5px;color:var(--mist);line-height:1.85;margin:0 0 12px">
       銘柄を探す前に、<b>そもそも今日は狙いに行っていい日か</b>を判定する。
-      日証金の貸借データから日次で推計した信用評価損益率を使う。JPX公表の週次値とは水準がずれるので、
-      公表値の閾値をそのまま当てはめないこと。
+      日証金の貸借データから日次で推計した信用評価損益率を使う。JPX公表の週次値とは水準がずれる。
     </p>
     <table class="gtable">
       <thead><tr><th>指標</th><th>読み方</th></tr></thead>
       <tbody>
-        <tr><td>売建 評価損益率</td>
-          <td>市場全体の売り方の損益。<b>マイナス＝売り方が負けている</b>＝踏み上げの土壌がある。判定の主役。</td></tr>
-        <tr><td>買建 評価損益率</td>
-          <td>買い方の損益。-10%前後まで沈むと投げが出やすく、そこからの戻りで踏み上げが起きやすい。EMA10とEMA20を併記。</td></tr>
-        <tr><td>需給スコア</td>
-          <td>プラスが大きいほど将来の売り需要が大きい＝下落圧力。買い残が売り残に対して膨らんでいる状態。</td></tr>
-        <tr><td>信用倍率</td>
-          <td>融資残 ÷ 貸株残（金額ベース）。高いほど売り方が少ない。信頼度は有効銘柄のカバレッジ。</td></tr>
+        <tr><td>売建 評価損益率</td><td>市場全体の売り方の損益。<b>マイナス＝売り方が負けている</b>＝踏み上げの土壌。判定の主役。</td></tr>
+        <tr><td>買建 評価損益率</td><td>買い方の損益。-10%前後まで沈むと投げが出やすく、そこからの戻りで踏み上げが起きやすい。</td></tr>
+        <tr><td>需給スコア</td><td>プラスが大きいほど将来の売り需要が大きく下落圧力。</td></tr>
+        <tr><td>信用倍率</td><td>融資残 ÷ 貸株残。高いほど売り方が少ない。</td></tr>
       </tbody>
     </table>
     <p style="font-size:11.5px;color:var(--mist);line-height:1.85;margin:14px 0 0">
-      <b>総合判定</b>：売建評価損益率が <code>-2%</code> を下回れば「追い風」、<code>+2%</code> を超えれば「逆風」、
-      間は「中立」。この閾値は暫定。履歴が60営業日たまったらσで切り直す。
+      <b>総合判定</b>：売建評価損益率が <code>-2%</code> を下回れば「追い風」、<code>+2%</code> 超で「逆風」、間は「中立」。
+      閾値は暫定で、履歴が60営業日たまったらσで切り直す。
     </p>
   </div>
 
   <div class="guide-sec">
-    <h3>② タブ ｜ 3つのビュー</h3>
+    <h3>② タブ ｜ 4つのビュー</h3>
     <table class="gtable">
       <thead><tr><th>タブ</th><th>何のためにあるか</th></tr></thead>
       <tbody>
-        <tr><td>銘柄別</td><td>実際にエントリー判断をする場所。ここが本番。需給の非対称性が価格に効く唯一のスケール。</td></tr>
+        <tr><td>銘柄別</td><td>実際にエントリー判断をする場所。ここが本番。</td></tr>
         <tr><td>業種別</td><td>業種全体が売られているのか、その1銘柄だけなのかを確かめる背景確認。円の大きさ＝該当銘柄数。</td></tr>
-        <tr><td>需給マップ</td><td>横軸＝買い方の損益、縦軸＝売り方の損益。両者は逆相関するので点は左上から右下の対角線に並ぶ。<b>そこから外れた点が異常</b>で、需給の歪みが起きている銘柄。</td></tr>
+        <tr><td>需給マップ</td><td>横軸＝個人の買い方損益、縦軸＝個人の売り方損益。両者は逆相関するので点は対角線に並ぶ。<b>そこから外れた点が需給の歪んだ銘柄</b>。</td></tr>
         <tr><td>市場全体</td><td>今日そもそも狙いに行っていい日かの判定。表とカルテは非表示になる。</td></tr>
       </tbody>
     </table>
@@ -345,11 +390,11 @@ tbody tr.sel{background:var(--ink600)}
     <table class="gtable">
       <thead><tr><th>操作</th><th>何を疑うためにあるか</th></tr></thead>
       <tbody>
-        <tr><td>燃料（X軸）</td><td>合成スコアの中身を分解する。「上位に来たのはDTCが高いだけで、売り方はまだ勝っているのでは」を確かめる。</td></tr>
-        <tr><td>着火（Y軸）</td><td>同じく分解用。52週高値までの距離とATR拡大率のどちらで稼いだスコアかを見る。</td></tr>
-        <tr><td>薄い貸株残を除外</td><td>貸株残5万株未満・DTC0.05日未満・信用倍率100倍超を落とす。母数が小さい銘柄は評価損益率も残高変化率も暴れるため。<b>初期ON</b>。</td></tr>
+        <tr><td>燃料（X軸）</td><td>合成スコアの中身を分解する。機関ショート系と個人信用系がグループ分けされている。「上位に来たのは残高が厚いだけで、機関はまだ勝っているのでは」を確かめる。</td></tr>
+        <tr><td>着火（Y軸）</td><td>52週高値までの距離とATR拡大率のどちらで稼いだスコアかを見る。評価損益率を縦軸に置けば、燃料の2要素を直交させて見ることもできる。</td></tr>
+        <tr><td>機関データなしを除外</td><td>0.5%以上を報告している機関がない銘柄を隠す。<b>初期ON</b>。OFFにすると燃料0の点が左端に並ぶ。</td></tr>
         <tr><td>EMA整列のみ</td><td>順張り＋需給燃料の形に絞る。逆張りにしないための安全弁。常時ONでもいい。</td></tr>
-        <tr><td>進行中のみ</td><td>5日残高変化率が-3%未満かつATR拡大中。予測ではなく検知。新規エントリーには向かない。</td></tr>
+        <tr><td>進行中のみ</td><td>機関残高が5日で5%以上減り、かつATRが拡大しているものだけ。2営業日のラグがあるので検知としては遅い。参考程度。</td></tr>
       </tbody>
     </table>
   </div>
@@ -358,16 +403,16 @@ tbody tr.sel{background:var(--ink600)}
     <h3>④ 中央 ｜ 気圧図</h3>
     <div class="guide-grid">
       <div class="gcard"><h4>横軸 — 燃料</h4>
-        <p>売り方がどれだけ追い込まれているか。残高が多い、含み損を抱えている、株が借りにくい。右ほど多い。
+        <p>機関の空売り残高の厚み（DTC45%）、発行済に対する割合（25%）、機関の含み損（30%）の合成。右ほど多い。
         <span class="why">燃料だけでは動かない。右下は何ヶ月も膠着する。</span></p></div>
       <div class="gcard"><h4>縦軸 — 着火</h4>
-        <p>今まさに株価が動き出しそうか。高値が近い、値動きが荒くなった、決算が近い。上ほど強い。
+        <p>52週高値までの距離（55%）とATR拡大率（45%）の合成。上ほど強い。
         <span class="why">着火だけなら普通の上昇。需給の後押しはない。</span></p></div>
       <div class="gcard"><h4>曲線 — 等圧線</h4>
-        <p>燃料×着火が同じ値になる線。天気図と同じで、右上に向かうほど気圧が高い＝踏み上げ圧が高い。
+        <p>燃料×着火が同じ値になる線。天気図と同じで、右上に向かうほど気圧が高い。
         <span class="why">同じ合計点でも中身が違うことが見える。</span></p></div>
       <div class="gcard"><h4>点の色と印</h4>
-        <p>藍→朱で気圧の高さ。<span style="color:var(--kincha)">金色の輪</span>は買い戻しがすでに始まっている印。
+        <p>藍→朱で気圧の高さ。<span style="color:var(--kincha)">金色の輪</span>は買い戻しが始まっている印。
         <span class="why">見る場所は右上だけ。左半分は燃料がないので対象外。</span></p></div>
     </div>
   </div>
@@ -376,70 +421,49 @@ tbody tr.sel{background:var(--ink600)}
     <h3>⑤ 中央 ｜ 市場全体タブのときのグラフ</h3>
     <p style="font-size:11.5px;color:var(--mist);line-height:1.85;margin:0">
       信用評価損益率の推移。<span style="color:#E8503A">朱＝売建</span>、<span style="color:#3D8FD1">藍＝買建</span>。
-      ゼロラインより下はその陣営が負けている状態。売建の線が下に沈んでいくほど、市場全体として踏み上げが起きやすい地合いになる。
-      横軸は営業日。履歴が短いうちは線も短い。
+      ゼロラインより下はその陣営が負けている状態。売建の線が下に沈むほど、市場全体として踏み上げが起きやすい地合いになる。
+      縦軸は2刻み、横軸は営業日。
     </p>
   </div>
 
   <div class="guide-sec">
     <h3>⑥ 右 ｜ 個別カルテ</h3>
     <p style="font-size:11.5px;color:var(--mist);line-height:1.85;margin:0 0 12px">
-      気圧図の点、または表の行を選ぶと出る。3本のゲージ（燃料・着火・売り方評価損益率）、
-      主要指標、<b>信用需給の内訳</b>という並び。
+      燃料・着火のゲージの下に、<b>機関ショート</b>・<b>個人信用</b>・<b>価格</b>の3セクション。
+      それぞれ見出しの右に日付が出る。項目名にマウスを載せると説明が出る。
     </p>
     <div class="guide-grid">
-      <div class="gcard"><h4>売建加重平均単価</h4>
-        <p>売り方が平均していくらで売ったか。現値がこれを上回っているほど売り方は含み損。
-        <span class="why">日々の残高増減にその日の株価を掛けて累積した推計値。</span></p></div>
-      <div class="gcard"><h4>貸株残と融資残</h4>
-        <p>貸株残＝売り方、融資残＝買い方。貸株残が融資残に近づくほど株不足で、逆日歩が付きやすい。
-        <span class="why">貸株残が薄いと他の指標も信用できない。</span></p></div>
+      <div class="gcard"><h4>報告機関の内訳が本命</h4>
+        <p>機関ごとの残高とヘッジ度。灰色のバーはヘッジ度0.8以上＝価格が上がっても買い戻さないと推定される玉。
+        <span class="why">灰色ばかりなら燃料スコアが高くても割り引く。</span></p></div>
+      <div class="gcard"><h4>コスト推計の信頼度</h4>
+        <p>評価損益率の下に「○日分の観測／リセット○回」と出る。リセットは残高が0.5%を割って報告が消えた回数。
+        <span class="why">リセットが多いと実際より新しいコストに寄る。目安として読むこと。</span></p></div>
     </div>
   </div>
 
   <div class="guide-sec">
-    <h3>⑦ 最下部 ｜ 表と指標の定義</h3>
+    <h3>⑦ 最下部 ｜ 表</h3>
     <p style="font-size:11.5px;color:var(--mist);line-height:1.85;margin:0 0 12px">
-      見出しをクリックで並べ替え。<code>売方損益</code> と <code>5日残高Δ</code> は
-      <b>マイナスが燃料</b>なので、初回クリックは昇順になるようにしてある。
+      見出しをクリックで並べ替え。<b>マイナスが燃料になる列</b>（ヘッジ度・機関損益・機関5日Δ・個人売方）は初回クリックが昇順になる。
+      各見出しにマウスを載せれば定義が出るので、意味を忘れてもここで確認できる。
     </p>
-    <table class="gtable">
-      <thead><tr><th>指標</th><th>意味と符号</th></tr></thead>
-      <tbody>
-        <tr><td>DTC（売り方）</td><td>貸株残高株数 ÷ 20日平均出来高。買い戻しに何日かかるか。<b>大きいほど燃料</b>。</td></tr>
-        <tr><td>DTC（買い方）</td><td>融資残高株数 ÷ 20日平均出来高。下げたときに投げが出続ける日数。大きいほど戻り売り圧力が重い。</td></tr>
-        <tr><td>買方損益</td><td>買建加重平均単価と現値から算出した買い方の評価損益率。<b>マイナス＝買い方が投げやすい</b>。深く沈んだ後の反発が踏み上げの引き金になる。</td></tr>
-        <tr><td>売方損益</td><td>売建加重平均単価と現値から算出した売り方の評価損益率。<b>マイナス＝売り方が負けている＝燃料</b>。</td></tr>
-        <tr><td>売方比</td><td><b>売り方シェア</b>の略。<code>貸株残 ÷ (貸株残＋融資残)</code>。信用残高全体のうち売り方が占める割合。
-          0.2なら買い方が4倍いる状態、0.5で拮抗、<b>0.5超は貸株残が融資残を上回る＝株不足</b>で逆日歩が付きやすい。
-          信用倍率と同じ情報を別の形にしたもので <code>売方比 = 1 ÷ (信用倍率 + 1)</code>。
-          信用倍率は0.5倍から9999倍まで散らばって軸に使えないので、散布図ではこちらを使う。</td></tr>
-        <tr><td>5日残高Δ</td><td><code>(当日の貸株残 ÷ 5営業日前 - 1) × 100</code>。<b>マイナス＝残高減少＝買い戻し</b>。</td></tr>
-        <tr><td>信用倍率</td><td>融資残 ÷ 貸株残（金額ベース）。<b>低いほど売り方が多い</b>。1倍を割ると貸株残が融資残を上回る。数百倍以上は売り方がほぼいない銘柄で、他の指標も当てにならない。</td></tr>
-        <tr><td>需給</td><td>需給スコア。プラスが大きいほど将来の売り需要（買い方の手仕舞い）が大きく下落圧力。マイナスは将来の買い需要が大きく上昇圧力。</td></tr>
-        <tr><td>差引残</td><td>貸株残 − 融資残。プラスで株不足。出来高で割った値も併記していて、こちらは「何日分の株が足りないか」。</td></tr>
-        <tr><td>回転日数</td><td>融資残高が1回転するのに要する日数（日証金公表）。<b>短いほど短期の売買が激しい</b>＝値動きが荒れやすい。長いと塩漬けが多く、戻り売りが重い。</td></tr>
-        <tr><td>当日フロー</td><td><code>(新規 - 返済) ÷ 残高</code>。その日1日でどちらに動いたか。<b>売り方がマイナス＝当日買い戻しが出た</b>。5日・20日の変化率より反応が早く、初動の検知に使える。</td></tr>
-        <tr><td>残高変化率</td><td>カルテでは 5日 / 20日 を併記。<b>5日が急減して20日は横ばい</b>なら直近で買い戻しが始まったところ。両方マイナスなら手仕舞いが続いている。</td></tr>
-        <tr><td>気圧</td><td>燃料 × 着火 ÷ 10。単独では意味がなく、順位づけにだけ使う。</td></tr>
-      </tbody>
-    </table>
   </div>
 
   <div class="guide-sec">
     <h3>読み違えやすいところ</h3>
     <div class="guide-grid">
-      <div class="gcard"><h4>機関の空売りは入っていない</h4>
-        <p>これは日証金の貸借データ＝制度信用。機関は相対貸借で株を借りるので、ここには現れない。
-        <span class="why">JPXの空売り残高報告は別データ。第2段階で追加する。</span></p></div>
-      <div class="gcard"><h4>貸株残が薄い銘柄は当てにならない</h4>
-        <p>信用倍率が数千倍の銘柄では、売り方が数千株しかいない。評価損益率が-10%でも燃料にならない。
-        <span class="why">「薄い貸株残を除外」を切るときは、この点を承知の上で。</span></p></div>
-      <div class="gcard"><h4>前日終値ベース</h4>
-        <p>日証金の貸借値段は前日終値。当日のザラ場の動きは反映されていない。
-        <span class="why">当日大きく動いた銘柄は、実際の評価損益率がもっと悪化している。</span></p></div>
+      <div class="gcard"><h4>0.5%未満は見えない</h4>
+        <p>報告義務は発行済の0.5%以上。それ未満の残高は存在しても表示されない。また0.5%を割ると行ごと消えるので、解消と報告義務消失は区別できない。
+        <span class="why">残高減少は株価と出来高で裏を取る。</span></p></div>
+      <div class="gcard"><h4>2営業日のラグ</h4>
+        <p>機関データは計算日の2営業日後に公表される。検証は公表日基準で行うこと。
+        <span class="why">計算日基準はルックアヘッドになる。</span></p></div>
+      <div class="gcard"><h4>ヘッジ度は推定値</h4>
+        <p>報告者の行動パターンから機械的に推定したもので、実際の建玉の目的は分からない。順位ベースなので絶対値に意味はない。
+        <span class="why">銘柄間の相対比較に使う。</span></p></div>
       <div class="gcard"><h4>空売りが多いのには理由がある</h4>
-        <p>売られているのは業績やバリュエーションに問題があるから。「売られすぎ」は多くの場合「正しく売られている」。
+        <p>機関が売っているのは業績やバリュエーションに問題があるから。「売られすぎ」は多くの場合「正しく売られている」。
         <span class="why">単独シグナルにせず、トレンドが出ている銘柄のタイブレーカーとして使う。</span></p></div>
     </div>
   </div>
@@ -450,7 +474,7 @@ tbody tr.sel{background:var(--ink600)}
   燃料＝DTC 40% + 売り方評価損益 40% + 売り方シェア 20%、着火＝52週高値まで 55% + ATR拡大率 45%。気圧＝燃料×着火。
   重みは <code>WT</code> オブジェクトで調整できる。<br>
   <b>符号規約</b>：<code>shortPnl</code> と <code>cover5</code> は<b>マイナスが燃料</b>。<br>
-  <span style="color:var(--mist)">UI版数 <b>v1.5</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
+  <span style="color:var(--mist)">UI版数 <b>v2.0</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
 </div>
 
 </div>
@@ -461,31 +485,36 @@ tbody tr.sel{background:var(--ink600)}
    ============================================================ */
 const DATA_URL = 'squeeze.json';
 
-// --- スコアの重み（ここを変えれば燃料/着火の配分を調整できる） ---
+// --- スコアの重み。ここを変えれば燃料/着火の配分を調整できる ---
+//   燃料は機関ショート(JPX)ベース。日証金の貸株残は品貸分だけで
+//   中央値0.00日と薄すぎるため、燃料の計算には使わない(表示には残す)
 const WT = {
-  fuel:     { dtc: 0.40, pnl: 0.40, tight: 0.20 },
+  fuel:     { dtc: 0.45, ratio: 0.25, pnl: 0.30 },
   ignition: { hi52: 0.55, atr: 0.45 },
-  // 各指標が満点になる水準
-  cap:      { dtc: 2.0, pnl: 15, tight: 0.6, hi52: 25, atrLo: 0.85, atrHi: 1.35 },
+  cap:      { dtc: 8, ratio: 8, pnl: 20, hi52: 25, atrLo: 0.85, atrHi: 1.35 },
 };
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const nz    = v => (v === null || v === undefined || Number.isNaN(v)) ? null : v;
+const has   = v => v !== null && v !== undefined && !Number.isNaN(v);
 
 function score(s) {
   const c = WT.cap;
-  const fDtc   = s.dtcMargin === null ? 0 : clamp(s.dtcMargin / c.dtc, 0, 1) * WT.fuel.dtc;
-  const fPnl   = s.shortPnl  === null ? 0 : clamp(-s.shortPnl / c.pnl, 0, 1) * WT.fuel.pnl;
-  const fTight = s.tight     === null ? 0 : clamp(s.tight / c.tight, 0, 1) * WT.fuel.tight;
-  s.fuel = Math.round((fDtc + fPnl + fTight) * 100);
+  if (has(s.instQty)) {
+    const fD = has(s.dtcInst)      ? clamp(s.dtcInst / c.dtc, 0, 1)       * WT.fuel.dtc   : 0;
+    const fR = has(s.instRatio)    ? clamp(s.instRatio / c.ratio, 0, 1)   * WT.fuel.ratio : 0;
+    const fP = has(s.shortPnlInst) ? clamp(-s.shortPnlInst / c.pnl, 0, 1) * WT.fuel.pnl   : 0;
+    s.fuel = Math.round((fD + fR + fP) * 100);
+  } else {
+    s.fuel = 0;               // 機関の報告なし = 機関の売りが溜まっていない
+  }
 
-  const iHi  = s.hi52   === null ? 0 : clamp(1 - s.hi52 / c.hi52, 0, 1) * WT.ignition.hi52;
-  const iAtr = s.atrExp === null ? 0
-             : clamp((s.atrExp - c.atrLo) / (c.atrHi - c.atrLo), 0, 1) * WT.ignition.atr;
+  const iHi  = has(s.hi52)   ? clamp(1 - s.hi52 / c.hi52, 0, 1) * WT.ignition.hi52 : 0;
+  const iAtr = has(s.atrExp) ? clamp((s.atrExp - c.atrLo) / (c.atrHi - c.atrLo), 0, 1) * WT.ignition.atr : 0;
   s.ignition = Math.round((iHi + iAtr) * 100);
 
   s.pressure = Math.round(s.fuel * s.ignition / 10);
-  s.running  = (s.cover5 !== null && s.cover5 < -3) && (s.atrExp !== null && s.atrExp > 1.15);
+  s.running  = has(s.coverInst5) && s.coverInst5 < -5 && has(s.atrExp) && s.atrExp > 1.15;
+  s.noInst   = !has(s.instQty);
   return s;
 }
 
@@ -499,33 +528,89 @@ async function loadData() {
   const j = await res.json();
   DATA   = { stocks: j.stocks.map(score) };
   MARKET = j.market;
-  META   = { generated: j.generated, discDate: j.discDate, mode: j.mode };
+  META   = { generated: j.generated, discDate: j.discDate, instDate: j.instDate, mode: j.mode };
+}
+
+/* ============================================================
+   1.5 用語辞典 — ツールチップと解説で共用する
+   ============================================================ */
+const TERMS = {
+  fuel:      ['燃料スコア', '売り方がどれだけ追い込まれているか。機関の空売り残高の厚み・発行済に対する割合・機関の含み損を合成した0〜100。高いほど買い戻しの燃料が多い。', '機関DTC45% + 残高割合25% + 評価損益率30%'],
+  ignition:  ['着火スコア', '今まさに株価が動き出しそうか。52週高値までの距離とATRの拡大率を合成した0〜100。燃料があっても着火がなければ踏み上げは起きない。', '52週高値まで55% + ATR拡大率45%'],
+  pressure:  ['気圧', '燃料×着火÷10。単独では意味を持たず、候補の順位づけにだけ使う。', '燃料 × 着火 ÷ 10'],
+  dtcInst:   ['機関DTC', '機関の空売り残高を1日の平均出来高で割った日数。買い戻すのに何日かかるかを表す。大きいほど、いざ買い戻しが始まったときに株価を押し上げる。', '機関残高 ÷ 20日平均出来高'],
+  instRatio: ['機関残高割合', '発行済株式総数に対する機関の空売り残高の比率。0.5%以上になると報告義務が生じるため、これ未満の残高は見えない。', '機関残高 ÷ 発行済株式総数'],
+  instN:     ['報告機関数', '0.5%以上を報告している機関の数。多いほど売りの合意が広く、少ないほど1社の判断に依存している。'],
+  hedge:     ['ヘッジ度', '報告機関の同時保有銘柄数・残高の変動係数・保有日数・報告頻度から推定した「買い戻さない玉」の割合。残高で加重平均している。低いほど方向性のポジションで、踏み上がりやすい。', '0に近い=方向性 / 1に近い=ヘッジ・裁定'],
+  shortPnlInst:['機関の評価損益率', '機関の売建コストの推計から出した含み損益率。マイナスなら売り方が負けていて、損切りに追い込まれやすい。日々の残高増減にその日の終値を掛けて累積した推計値。', '(売建コスト ÷ 現値 - 1) × 100'],
+  coverInst5:['機関残高 5日変化率', '機関の空売り残高が直近5営業日でどれだけ増減したか。マイナスは残高減＝買い戻し。ただし0.5%を割ると報告が消えるため、解消と報告義務消失は区別できない。'],
+  instDays:  ['観測日数', 'コスト推計に使えた日数。長いほど推計が安定する。'],
+  instReset: ['リセット回数', '残高が0.5%を割って報告が消えた回数。多いほどコスト推計が実際より新しい値に寄っている。'],
+  shortPnl:  ['個人 売り方評価損益率', '日証金の貸株残から推計した個人の売り方の損益率。マイナスは売り方が負けている状態。ただし貸株残は品貸分だけなので母数が小さく、参考程度。', '(売建加重平均単価 ÷ 現値 - 1) × 100'],
+  longPnl:   ['個人 買い方評価損益率', '融資残から推計した買い方の損益率。マイナスは買い方が含み損を抱えている状態で、投げが出やすい。深く沈んだ後の反発が踏み上げの引き金になる。'],
+  dtcMargin: ['個人DTC', '貸株残を20日平均出来高で割った日数。ただし日証金の貸株残は品貸(株不足)分だけで中央値0.00日と薄いため、燃料の判断には使えない。'],
+  bairitsu:  ['信用倍率', '融資残 ÷ 貸株残（金額ベース）。低いほど売り方が多い。数百倍以上は売り方がほぼいない銘柄。'],
+  tight:     ['売り方シェア', '信用残高全体のうち売り方が占める割合。0.5超で貸株残が融資残を上回る＝株不足で逆日歩が付きやすい。', '貸株残 ÷ (貸株残 + 融資残)'],
+  jukyu:     ['需給スコア', 'プラスが大きいほど将来の売り需要（買い方の手仕舞い）が大きく下落圧力。マイナスは上昇圧力。'],
+  flowShort: ['個人 当日フロー', 'その日1日の売り方の純増率。マイナスは当日買い戻しが出たということ。5日・20日の変化率より反応が早い。', '(貸株新規 - 貸株返済) ÷ 貸株残'],
+  flowLong:  ['個人 当日フロー（買い方）', 'その日1日の買い方の純増率。マイナスは投げが出たということ。'],
+  cover5:    ['個人 5日残高変化率', '貸株残の5営業日変化率。マイナスは残高減＝買い戻し。'],
+  rotation:  ['回転日数', '融資残高が1回転するのに要する日数。短いほど短期売買が激しく値動きが荒れやすい。長いと塩漬けが多く戻り売りが重い。'],
+  netZan:    ['差引残', '貸株残 − 融資残。プラスで株不足。'],
+  hi52:      ['52週高値まで', '現値から52週高値までの距離。小さいほど高値が近く、抜けたときに動き出しやすい。'],
+  atrExp:    ['ATR拡大率', 'ATR20 ÷ ATR60。1を超えると直近の値動きが平常時より荒くなっている。', 'ATR20 ÷ ATR60'],
+  emaOk:     ['EMA整列', '20 > 60 > 120 > 200 の順に並んでいるか。上昇トレンドの確認。'],
+  running:   ['進行中', '機関残高が5日で5%以上減り、かつATRが拡大している状態。すでに買い戻しが始まっている可能性がある。予測ではなく検知なので、新規エントリーには向かない。'],
+};
+
+const tipEl = () => document.getElementById('tip');
+function bindTips(){
+  const t = tipEl();
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest && e.target.closest('[data-tip]');
+    if(!el) return;
+    const k = el.getAttribute('data-tip');
+    const d = TERMS[k];
+    t.innerHTML = d ? `<b>${d[0]}</b>${d[1]}${d[2]?`<span class="f">${d[2]}</span>`:''}` : k;
+    t.classList.add('on');
+  });
+  document.addEventListener('mouseout', e => {
+    if(e.target.closest && e.target.closest('[data-tip]')) t.classList.remove('on');
+  });
+  document.addEventListener('mousemove', e => {
+    if(!t.classList.contains('on')) return;
+    const w = t.offsetWidth, h = t.offsetHeight;
+    let x = e.clientX + 16, y = e.clientY + 16;
+    if(x + w > innerWidth - 12)  x = e.clientX - w - 16;
+    if(y + h > innerHeight - 12) y = e.clientY - h - 16;
+    t.style.left = Math.max(8, x) + 'px';
+    t.style.top  = Math.max(8, y) + 'px';
+  });
 }
 
 /* ============================================================
    2. 状態
    ============================================================ */
 const S={view:"stock", x:"fuel", y:"ignition",
-         flags:{exThin:true, emaOnly:false, runOnly:false},
+         flags:{exNoInst:true, emaOnly:false, runOnly:false},
          sortK:"fuel", sortDir:"desc", sel:null};
 
 const AXES={
   fuel:{lab:"燃料スコア",max:100,fmt:v=>v.toFixed(0)},
-  dtcMargin:{lab:"DTC 売り方 日",max:3,fmt:v=>v.toFixed(1)},
-  shortPnl:{lab:"売り方評価損益率 %（右ほど売り方が負け）",min:10,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
-  tight:{lab:"売り方シェア（0.5超で株不足）",max:1,fmt:v=>v.toFixed(2)},
-  cover5:{lab:"5日残高変化率 %（右ほど買い戻し）",min:20,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
-  longPnl:{lab:"買い方評価損益率 %",min:-30,max:20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
-  dtcLong:{lab:"DTC 買い方 日",max:12,fmt:v=>v.toFixed(1)},
-  jukyu:{lab:"需給スコア %",min:-100,max:100,fmt:v=>v.toFixed(0)},
-  bairitsu:{lab:"信用倍率 倍（右ほど売り方が少ない）",max:20,fmt:v=>v.toFixed(1)},
-  rotation:{lab:"融資 残高回転日数",max:30,fmt:v=>v.toFixed(0)},
-  flowShort:{lab:"当日フロー 売り方 %（右ほど買い戻し）",min:15,max:-15,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
-  flowLong:{lab:"当日フロー 買い方 %",min:-15,max:15,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
-  netZanDtc:{lab:"差引残 ÷ 20日平均出来高（右で株不足）",min:-8,max:2,fmt:v=>v.toFixed(1)},
-  cover20:{lab:"20日残高変化率 売り方 %",min:40,max:-40,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
-  cover5Long:{lab:"5日残高変化率 買い方 %",min:20,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
   ignition:{lab:"着火スコア",max:100,fmt:v=>v.toFixed(0)},
+  dtcInst:{lab:"機関DTC 日（残高÷20日平均出来高）",max:16,fmt:v=>v.toFixed(1)},
+  instRatio:{lab:"機関残高割合 %（発行済に対する）",max:13,fmt:v=>v.toFixed(1)},
+  shortPnlInst:{lab:"機関の評価損益率 %（右ほど負け）",min:15,max:-25,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  hedge:{lab:"ヘッジ度（左ほど買い戻す玉）",min:0.4,max:0.9,fmt:v=>v.toFixed(2)},
+  coverInst5:{lab:"機関残高 5日変化率 %（右ほど買い戻し）",min:20,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  instN:{lab:"報告機関数",max:10,fmt:v=>v.toFixed(0)},
+  shortPnl:{lab:"個人 売り方評価損益率 %",min:10,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  longPnl:{lab:"個人 買い方評価損益率 %",min:-30,max:20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  bairitsu:{lab:"信用倍率 倍",max:20,fmt:v=>v.toFixed(1)},
+  tight:{lab:"売り方シェア",max:1,fmt:v=>v.toFixed(2)},
+  jukyu:{lab:"需給スコア %",min:-100,max:100,fmt:v=>v.toFixed(0)},
+  flowShort:{lab:"個人 当日フロー %（右ほど買い戻し）",min:15,max:-15,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  rotation:{lab:"融資 残高回転日数",max:30,fmt:v=>v.toFixed(0)},
   hi52:{lab:"52週高値まで %",max:40,invert:true,fmt:v=>v.toFixed(0)},
   atrExp:{lab:"ATR拡大率",min:0.7,max:1.6,fmt:v=>v.toFixed(2)}
 };
@@ -535,7 +620,7 @@ const AXES={
    ============================================================ */
 function rows(){
   return DATA.stocks.filter(s=>{
-    if(S.flags.exThin && s.thin) return false;
+    if(S.flags.exNoInst && s.noInst) return false;
     if(s[S.x]===null || s[S.y]===null) return false;
     if(S.flags.emaOnly && !s.emaOk)    return false;
     if(S.flags.runOnly && !s.running)  return false;
@@ -543,7 +628,8 @@ function rows(){
   });
 }
 function sectors(){
-  const keys=["fuel","ignition","dtcMargin","shortPnl","cover5","tight"];
+  const keys=["fuel","ignition","dtcInst","instRatio","hedge","shortPnlInst",
+              "coverInst5","shortPnl","instN"];
   const m=new Map();
   for(const s of rows()){
     if(!m.has(s.sector)) m.set(s.sector,{sector:s.sector,n:0,
@@ -773,85 +859,100 @@ function drawDetail(){
   const s=DATA.stocks.find(x=>x.code===S.sel);
   if(!s){box.innerHTML='<div class="det-empty">気圧図の点、または下の表の行を<br>選ぶと内訳が出ます</div>';
          tag.textContent="点を選択";return}
-  tag.textContent=s.running?"買い戻し進行中":(s.thin?"参考値":"待機");
-  const f=(v,d=2,suf="")=>v===null?"—":v.toFixed(d)+suf;
-  const sg=(v,d=2,suf="")=>v===null?"—":(v>0?"+":"")+v.toFixed(d)+suf;
-  const pnlLoss=s.shortPnl!==null&&s.shortPnl<0;
+  tag.textContent=s.running?"買い戻し進行中":(s.noInst?"機関データなし":"待機");
+  const f =(v,d=2,su="")=>has(v)?v.toFixed(d)+su:"—";
+  const sg=(v,d=2,su="")=>has(v)?(v>0?"+":"")+v.toFixed(d)+su:"—";
+  const man= v=>has(v)?(v/1e4).toFixed(0)+"万株":"—";
+  const T  = k=>`data-tip="${k}"`;
+
+  // コスト推計の信頼度
+  const relia = !has(s.instDays) ? "" :
+    `<div style="font-size:10.5px;color:${s.instReset>0?"var(--kincha)":"var(--mist2)"};margin-top:6px;line-height:1.7">
+       ${s.instReset>0?"⚠ ":""}推計は${s.instDays}日分の観測${s.instReset>0
+         ?`／途中${s.instReset}回リセット（実際より新しいコストに寄っている）`:"／リセットなし"}
+     </div>`;
+
   box.innerHTML=`
     <div class="det-code">${s.code}　${f(s.px,1)}円</div>
     <h2 class="det-name">${s.name}</h2>
     <span class="det-sector">${s.sector}</span>
-    ${s.thin?'<span class="det-sector" style="border-color:var(--kincha);color:var(--kincha)">貸株残が薄い</span>':''}
 
-    <div class="gauge-lab"><span>FUEL 燃料</span><span>${s.fuel}</span></div>
+    <div class="gauge-lab"><span ${T('fuel')}>FUEL 燃料</span><span>${s.fuel}</span></div>
     ${bar(s.fuel,100,"var(--shu)")}
-    <div class="gauge-lab"><span>IGNITION 着火</span><span>${s.ignition}</span></div>
+    <div class="gauge-lab"><span ${T('ignition')}>IGNITION 着火</span><span>${s.ignition}</span></div>
     ${bar(s.ignition,100,"var(--kincha)")}
-    <div class="gauge-lab"><span>売り方評価損益率</span>
-      <span style="color:${pnlLoss?"var(--shu)":"var(--ai)"}">${sg(s.shortPnl,2,"%")}</span></div>
-    ${bar(s.shortPnl===null?0:10-s.shortPnl,30,pnlLoss?"var(--shu)":"var(--ai)")}
 
-    <dl class="kv">
-      <dt>DTC（売り方）</dt><dd>${f(s.dtcMargin)} 日</dd>
-      <dt>DTC（買い方）</dt><dd>${f(s.dtcLong)} 日</dd>
-      <dt>売り方シェア</dt><dd>${f(s.tight,3)}</dd>
-      <dt>残高変化率 売り方</dt><dd style="color:${s.cover5!==null&&s.cover5<0?"var(--shu)":"var(--mist)"}">${sg(s.cover5,1,"%")} <span style="color:var(--mist2)">/ ${sg(s.cover20,1,"%")}</span></dd>
-      <dt>残高変化率 買い方</dt><dd>${sg(s.cover5Long,1,"%")} <span style="color:var(--mist2)">/ ${sg(s.cover20Long,1,"%")}</span></dd>
-      <dt>当日フロー 売り方</dt><dd style="color:${s.flowShort!==null&&s.flowShort<0?"var(--shu)":"var(--mist)"}">${sg(s.flowShort,2,"%")}</dd>
-      <dt>当日フロー 買い方</dt><dd>${sg(s.flowLong,2,"%")}</dd>
-      <dt>52週高値まで</dt><dd>${f(s.hi52,1,"%")}</dd>
-      <dt>ATR拡大率</dt><dd>${f(s.atrExp)}</dd>
-      <dt>EMA整列</dt><dd>${s.emaOk?"○":"—"}</dd>
+    <div class="sec-hd">機関ショート<span>JPX・${META.instDate||"—"}時点</span></div>
+    ${s.noInst
+      ? '<div style="font-size:11.5px;color:var(--mist2);line-height:1.8">0.5%以上を報告している機関がありません。機関の売りが溜まっていない状態です。</div>'
+      : `<dl class="kv" style="margin-top:6px">
+      <dt ${T('instRatio')}>残高割合</dt><dd>${f(s.instRatio,2,"%")}</dd>
+      <dt>残高</dt><dd>${man(s.instQty)}</dd>
+      <dt ${T('dtcInst')}>機関DTC</dt><dd>${f(s.dtcInst)} 日</dd>
+      <dt ${T('instN')}>報告機関数</dt><dd>${s.instN||0} 社</dd>
+      <dt ${T('hedge')}>ヘッジ度</dt><dd>${f(s.hedge)}</dd>
+      <dt ${T('shortPnlInst')}>評価損益率</dt><dd style="color:${s.shortPnlInst<0?"var(--shu)":"var(--ai)"}">${sg(s.shortPnlInst,2,"%")}</dd>
+      <dt>売建コスト</dt><dd>${f(s.instCost,1)} 円</dd>
+      <dt ${T('coverInst5')}>残高変化 5日/20日</dt><dd style="color:${s.coverInst5<0?"var(--shu)":"var(--mist)"}">${sg(s.coverInst5,1,"%")} <span style="color:var(--mist2)">/ ${sg(s.coverInst20,1,"%")}</span></dd>
+    </dl>${relia}
+    ${(s.insts||[]).map(i=>`
+      <div class="inst-row">
+        <div>${i.name}
+          <div class="hedge-dot">ヘッジ度 ${i.hedge.toFixed(2)}　${(i.ratio).toFixed(2)}%</div>
+        </div>
+        <div class="mono" style="text-align:right;font-size:10.5px">${(i.qty/1e4).toFixed(0)}万株</div>
+      </div>
+      ${bar(i.qty, s.instQty, i.hedge>=0.8?"var(--mist2)":"var(--shu)")}`).join("")}`}
+
+    <div class="sec-hd">個人信用<span>日証金・${META.discDate||"—"}</span></div>
+    <dl class="kv" style="margin-top:6px">
+      <dt ${T('shortPnl')}>売り方 評価損益率</dt><dd style="color:${s.shortPnl<0?"var(--shu)":"var(--ai)"}">${sg(s.shortPnl,2,"%")}</dd>
+      <dt ${T('longPnl')}>買い方 評価損益率</dt><dd style="color:${s.longPnl<0?"var(--kincha)":"var(--midori)"}">${sg(s.longPnl,2,"%")}</dd>
+      <dt ${T('bairitsu')}>信用倍率</dt><dd>${f(s.bairitsu)} 倍</dd>
+      <dt ${T('tight')}>売り方シェア</dt><dd>${f(s.tight,3)}</dd>
+      <dt ${T('jukyu')}>需給スコア</dt><dd>${sg(s.jukyu,1,"%")}</dd>
+      <dt ${T('rotation')}>回転日数</dt><dd>${f(s.rotation,1)} 日</dd>
+      <dt ${T('flowShort')}>当日フロー 売/買</dt><dd>${sg(s.flowShort,2,"%")} <span style="color:var(--mist2)">/ ${sg(s.flowLong,2,"%")}</span></dd>
+      <dt>貸株残 / 融資残</dt><dd>${man(s.kashi)} / ${man(s.yushi)}</dd>
     </dl>
 
-    <div class="gauge-lab" style="margin-bottom:8px"><span>信用需給の内訳</span><span>${s.kyokumen||""}</span></div>
-    <dl class="kv" style="margin-top:0">
-      <dt>貸株残高（売り方）</dt><dd>${s.kashi===null?"—":(s.kashi/1e4).toFixed(1)+"万株"}</dd>
-      <dt>融資残高（買い方）</dt><dd>${s.yushi===null?"—":(s.yushi/1e4).toFixed(1)+"万株"}</dd>
-      <dt>売建加重平均単価</dt><dd>${f(s.uriTanka,1)} 円</dd>
-      <dt>買建加重平均単価</dt><dd>${f(s.kaiTanka,1)} 円</dd>
-      <dt>売り方 評価損益率</dt><dd style="color:${pnlLoss?"var(--shu)":"var(--ai)"}">${sg(s.shortPnl,2,"%")}</dd>
-      <dt>買い方 評価損益率</dt><dd style="color:${s.longPnl<0?"var(--kincha)":"var(--midori)"}">${sg(s.longPnl,2,"%")}</dd>
-      <dt>融資 残高回転日数</dt><dd>${f(s.rotation,1)} 日</dd>
-      <dt>信用倍率</dt><dd>${f(s.bairitsu)} 倍</dd>
-      <dt>需給スコア</dt><dd>${sg(s.jukyu,1,"%")}</dd>
-      <dt>差引残（貸株−融資）</dt><dd style="color:${s.netZan>0?"var(--shu)":"var(--mist)"}">${s.netZan===null?"—":(s.netZan/1e4).toFixed(1)+"万株"}</dd>
-      <dt>差引残 ÷ 出来高</dt><dd>${f(s.netZanDtc,2)} 日</dd>
-    </dl>
-    <div style="font-size:10.5px;color:var(--mist2);margin-top:10px;line-height:1.7">
-      日証金の貸借データ（個人の信用売り）。機関の空売り残高は含まれない。
-    </div>`;
+    <div class="sec-hd">価格<span>${META.discDate||"—"}</span></div>
+    <dl class="kv" style="margin-top:6px">
+      <dt ${T('hi52')}>52週高値まで</dt><dd>${f(s.hi52,1,"%")}</dd>
+      <dt ${T('atrExp')}>ATR拡大率</dt><dd>${f(s.atrExp)}</dd>
+      <dt ${T('emaOk')}>EMA整列</dt><dd>${s.emaOk?"○":"—"}</dd>
+    </dl>`;
 }
 
 function drawTable(){
   const isSec=S.view==="sector";
   const data=(isSec?sectors():rows()).slice().sort((a,b)=>{
     const av=a[S.sortK], bv=b[S.sortK];
-    if(av===null&&bv===null) return 0;
-    if(av===null) return 1;
-    if(bv===null) return -1;
+    if(!has(av)&&!has(bv)) return 0;
+    if(!has(av)) return 1;
+    if(!has(bv)) return -1;
     const c = typeof av==="string" ? String(av).localeCompare(String(bv)) : av-bv;
     return S.sortDir==="asc"?c:-c;
   });
-  const f=(v,d=2)=>v===null||v===undefined?"—":v.toFixed(d);
-  const sg=(v,d=1)=>v===null||v===undefined?"—":(v>0?"+":"")+v.toFixed(d);
+  const f =(v,d=2)=>has(v)?v.toFixed(d):"—";
+  const sg=(v,d=1)=>has(v)?(v>0?"+":"")+v.toFixed(d):"—";
   document.getElementById("tbody").innerHTML=data.map(s=>{
     const state = isSec ? "" : (s.running
-      ? '<span class="pill" style="background:rgba(224,163,53,.18);color:var(--kincha)">進行中</span>'
-      : s.emaOk ? '<span class="pill" style="background:rgba(79,168,139,.15);color:var(--midori)">EMA整列</span>' : "—");
+      ? '<span class="pill" style="background:rgba(224,163,53,.18);color:var(--kincha)" data-tip="running">進行中</span>'
+      : s.emaOk ? '<span class="pill" style="background:rgba(79,168,139,.15);color:var(--midori)" data-tip="emaOk">EMA整列</span>' : "—");
     return `<tr data-code="${s.code}" class="${s.code===S.sel?"sel":""}">
       <td style="color:var(--mist2)">${s.code}</td>
       <td>${s.name}</td>
       <td style="color:${pressColor(s.fuel/100)}">${s.fuel}</td>
       <td>${s.ignition}</td>
       <td><b>${s.pressure}</b></td>
-      <td>${f(s.dtcMargin)}</td>
+      <td>${f(s.dtcInst)}</td>
+      <td>${f(s.instRatio)}</td>
+      <td>${s.instN||"—"}</td>
+      <td>${f(s.hedge)}</td>
+      <td style="color:${s.shortPnlInst<0?"var(--shu)":"var(--ai)"}">${sg(s.shortPnlInst,2)}</td>
+      <td style="color:${s.coverInst5<0?"var(--shu)":"var(--mist)"}">${sg(s.coverInst5)}</td>
       <td style="color:${s.shortPnl<0?"var(--shu)":"var(--ai)"}">${sg(s.shortPnl,2)}</td>
-      <td style="color:${s.longPnl<0?"var(--kincha)":"var(--midori)"}">${sg(s.longPnl,2)}</td>
-      <td>${f(s.tight,3)}</td>
-      <td>${f(s.bairitsu,1)}</td>
-      <td>${sg(s.jukyu,0)}</td>
-      <td style="color:${s.cover5!==null&&s.cover5<0?"var(--shu)":"var(--mist)"}">${sg(s.cover5)}</td>
       <td style="text-align:left">${state}</td></tr>`}).join("");
   document.querySelectorAll("#tbody tr").forEach(tr=>{
     if(!isSec) tr.addEventListener("click",()=>select(tr.dataset.code));
@@ -884,7 +985,7 @@ function render(){
     isMkt?"朱＝売建、藍＝買建。ゼロラインより下がその陣営の負け"
         : isJukyu?"右下＝上昇トレンドで売り方が踏まれている。対角線から外れた点が異常"
         : S.view==="sector"?"円の大きさ＝該当銘柄数。業種の資金移動を見る"
-        : "等圧線＝燃料×着火の期待値。右上ほど踏み上げ圧が高い";
+        : "等圧線＝燃料×着火の期待値。右上ほど踏み上げ圧が高い。燃料は機関ショート、着火は当日の価格から";
   isMkt?drawMarket():drawChart();
   if(!isMkt){drawTable();drawDetail();}
 }
@@ -923,7 +1024,9 @@ document.querySelectorAll("#tbl th").forEach(th=>th.addEventListener("click",()=
     return;
   }
   document.getElementById("m-calc").textContent=META.discDate||"—";
-  document.getElementById("m-disc").textContent=(META.generated||"").slice(0,10)||"—";
+  document.getElementById("m-inst").textContent=META.instDate||"—";
+  document.getElementById("m-gen").textContent=(META.generated||"").slice(0,10)||"—";
+  bindTips();
   drawRegime();
   render();
 })();
