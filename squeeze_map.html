@@ -205,6 +205,7 @@ tbody tr.sel{background:var(--ink600)}
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" aria-selected="true"  data-view="stock">銘柄別</button>
     <button class="tab" role="tab" aria-selected="false" data-view="sector">業種別</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="jukyu">需給マップ</button>
     <button class="tab" role="tab" aria-selected="false" data-view="market">市場全体</button>
   </div>
 </div>
@@ -214,10 +215,17 @@ tbody tr.sel{background:var(--ink600)}
     <span class="ctl-lab">燃料（X軸）</span>
     <select id="sel-x">
       <option value="fuel">総合スコア</option>
-      <option value="dtcMargin">DTC（貸株残）</option>
+      <option value="dtcMargin">DTC（売り方）</option>
       <option value="shortPnl">売り方評価損益率</option>
-      <option value="tight">株不足度</option>
+      <option value="tight">売り方シェア</option>
       <option value="cover5">5日残高変化率</option>
+      <option value="longPnl">買い方評価損益率</option>
+      <option value="dtcLong">DTC（買い方）</option>
+      <option value="jukyu">需給スコア</option>
+      <option value="bairitsu">信用倍率</option>
+      <option value="netZanDtc">差引残（対出来高）</option>
+      <option value="cover20">20日残高変化率（売）</option>
+      <option value="cover5Long">5日残高変化率（買）</option>
     </select>
   </div>
   <div class="ctl-group">
@@ -226,6 +234,8 @@ tbody tr.sel{background:var(--ink600)}
       <option value="ignition">総合スコア</option>
       <option value="hi52">52週高値まで</option>
       <option value="atrExp">ATR拡大率</option>
+      <option value="shortPnl">売り方評価損益率</option>
+      <option value="longPnl">買い方評価損益率</option>
     </select>
   </div>
   <div class="ctl-group">
@@ -261,7 +271,10 @@ tbody tr.sel{background:var(--ink600)}
       <th data-k="pressure">気圧</th>
       <th data-k="dtcMargin">DTC</th>
       <th data-k="shortPnl" data-asc="1">売方損益</th>
-      <th data-k="tight">株不足</th>
+      <th data-k="longPnl" data-asc="1">買方損益</th>
+      <th data-k="tight">売方比</th>
+      <th data-k="bairitsu" data-asc="1">信用倍率</th>
+      <th data-k="jukyu">需給</th>
       <th data-k="cover5" data-asc="1">5日残高Δ</th>
       <th data-k="state">状態</th>
     </tr></thead>
@@ -317,6 +330,7 @@ tbody tr.sel{background:var(--ink600)}
       <tbody>
         <tr><td>銘柄別</td><td>実際にエントリー判断をする場所。ここが本番。需給の非対称性が価格に効く唯一のスケール。</td></tr>
         <tr><td>業種別</td><td>業種全体が売られているのか、その1銘柄だけなのかを確かめる背景確認。円の大きさ＝該当銘柄数。</td></tr>
+        <tr><td>需給マップ</td><td>横軸＝買い方の損益、縦軸＝売り方の損益。両者は逆相関するので点は左上から右下の対角線に並ぶ。<b>そこから外れた点が異常</b>で、需給の歪みが起きている銘柄。</td></tr>
         <tr><td>市場全体</td><td>今日そもそも狙いに行っていい日かの判定。表とカルテは非表示になる。</td></tr>
       </tbody>
     </table>
@@ -388,10 +402,16 @@ tbody tr.sel{background:var(--ink600)}
     <table class="gtable">
       <thead><tr><th>指標</th><th>意味と符号</th></tr></thead>
       <tbody>
-        <tr><td>DTC</td><td>貸株残高株数 ÷ 20日平均出来高。買い戻しに何日かかるか。<b>大きいほど燃料</b>。</td></tr>
+        <tr><td>DTC（売り方）</td><td>貸株残高株数 ÷ 20日平均出来高。買い戻しに何日かかるか。<b>大きいほど燃料</b>。</td></tr>
+        <tr><td>DTC（買い方）</td><td>融資残高株数 ÷ 20日平均出来高。下げたときに投げが出続ける日数。大きいほど戻り売り圧力が重い。</td></tr>
+        <tr><td>買方損益</td><td>買建加重平均単価と現値から算出した買い方の評価損益率。<b>マイナス＝買い方が投げやすい</b>。深く沈んだ後の反発が踏み上げの引き金になる。</td></tr>
         <tr><td>売方損益</td><td>売建加重平均単価と現値から算出した売り方の評価損益率。<b>マイナス＝売り方が負けている＝燃料</b>。</td></tr>
-        <tr><td>株不足</td><td>貸株残 ÷ 融資残。1を超えると株が足りず、逆日歩が付きやすい。逆日歩そのものの代理変数。</td></tr>
+        <tr><td>株不足</td><td>売り方シェア＝貸株残 ÷ (貸株残＋融資残)。0〜1に収まり、<b>0.5超で貸株残が融資残を上回る＝株不足</b>。逆日歩の代理変数。</td></tr>
         <tr><td>5日残高Δ</td><td><code>(当日の貸株残 ÷ 5営業日前 - 1) × 100</code>。<b>マイナス＝残高減少＝買い戻し</b>。</td></tr>
+        <tr><td>信用倍率</td><td>融資残 ÷ 貸株残（金額ベース）。<b>低いほど売り方が多い</b>。1倍を割ると貸株残が融資残を上回る。数百倍以上は売り方がほぼいない銘柄で、他の指標も当てにならない。</td></tr>
+        <tr><td>需給</td><td>需給スコア。プラスが大きいほど将来の売り需要（買い方の手仕舞い）が大きく下落圧力。マイナスは将来の買い需要が大きく上昇圧力。</td></tr>
+        <tr><td>差引残</td><td>貸株残 − 融資残。プラスで株不足。出来高で割った値も併記していて、こちらは「何日分の株が足りないか」。</td></tr>
+        <tr><td>残高変化率</td><td>カルテでは 5日 / 20日 を併記。<b>5日が急減して20日は横ばい</b>なら直近で買い戻しが始まったところ。両方マイナスなら手仕舞いが続いている。</td></tr>
         <tr><td>気圧</td><td>燃料 × 着火 ÷ 10。単独では意味がなく、順位づけにだけ使う。</td></tr>
       </tbody>
     </table>
@@ -418,7 +438,7 @@ tbody tr.sel{background:var(--ink600)}
 
 <div class="foot">
   データ: 日証金 貸借取引残高（shinyo_hyoka_v12）＋ mon2 の価格パネル。毎営業日 Colab から <code>squeeze.json</code> を更新。<br>
-  燃料＝DTC 40% + 売り方評価損益 40% + 株不足度 20%、着火＝52週高値まで 55% + ATR拡大率 45%。気圧＝燃料×着火。
+  燃料＝DTC 40% + 売り方評価損益 40% + 売り方シェア 20%、着火＝52週高値まで 55% + ATR拡大率 45%。気圧＝燃料×着火。
   重みは <code>WT</code> オブジェクトで調整できる。<br>
   <b>符号規約</b>：<code>shortPnl</code> と <code>cover5</code> は<b>マイナスが燃料</b>。
 </div>
@@ -436,7 +456,7 @@ const WT = {
   fuel:     { dtc: 0.40, pnl: 0.40, tight: 0.20 },
   ignition: { hi52: 0.55, atr: 0.45 },
   // 各指標が満点になる水準
-  cap:      { dtc: 2.0, pnl: 15, tight: 1.0, hi52: 25, atrLo: 0.85, atrHi: 1.35 },
+  cap:      { dtc: 2.0, pnl: 15, tight: 0.6, hi52: 25, atrLo: 0.85, atrHi: 1.35 },
 };
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -481,10 +501,17 @@ const S={view:"stock", x:"fuel", y:"ignition",
 
 const AXES={
   fuel:{lab:"燃料スコア",max:100,fmt:v=>v.toFixed(0)},
-  dtcMargin:{lab:"DTC 日（貸株残÷20日平均出来高）",max:3,fmt:v=>v.toFixed(1)},
+  dtcMargin:{lab:"DTC 売り方 日",max:3,fmt:v=>v.toFixed(1)},
   shortPnl:{lab:"売り方評価損益率 %（右ほど売り方が負け）",min:10,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
-  tight:{lab:"株不足度（貸株残÷融資残）",max:1.5,fmt:v=>v.toFixed(2)},
+  tight:{lab:"売り方シェア（0.5超で株不足）",max:1,fmt:v=>v.toFixed(2)},
   cover5:{lab:"5日残高変化率 %（右ほど買い戻し）",min:20,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  longPnl:{lab:"買い方評価損益率 %",min:-30,max:20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  dtcLong:{lab:"DTC 買い方 日",max:12,fmt:v=>v.toFixed(1)},
+  jukyu:{lab:"需給スコア %",min:-100,max:100,fmt:v=>v.toFixed(0)},
+  bairitsu:{lab:"信用倍率 倍（右ほど売り方が少ない）",max:20,fmt:v=>v.toFixed(1)},
+  netZanDtc:{lab:"差引残 ÷ 20日平均出来高（右で株不足）",min:-8,max:2,fmt:v=>v.toFixed(1)},
+  cover20:{lab:"20日残高変化率 売り方 %",min:40,max:-40,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  cover5Long:{lab:"5日残高変化率 買い方 %",min:20,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
   ignition:{lab:"着火スコア",max:100,fmt:v=>v.toFixed(0)},
   hi52:{lab:"52週高値まで %",max:40,invert:true,fmt:v=>v.toFixed(0)},
   atrExp:{lab:"ATR拡大率",min:0.7,max:1.6,fmt:v=>v.toFixed(2)}
@@ -561,18 +588,34 @@ function drawChart(){
   }
   svg.appendChild(g);
 
-  // --- 軸 ---
+  // --- 軸（主目盛4分割 + 補助目盛をその4等分）---
   const grid=el("g");
-  for(let i=0;i<=4;i++){
-    const gx=M.l+PW*i/4, gy=M.t+PH*i/4;
-    grid.appendChild(el("line",{x1:gx,y1:M.t,x2:gx,y2:M.t+PH,stroke:"#2E3B52","stroke-width":.6,opacity:.55}));
-    grid.appendChild(el("line",{x1:M.l,y1:gy,x2:M.l+PW,y2:gy,stroke:"#2E3B52","stroke-width":.6,opacity:.55}));
-    const xv=xlo+(xhi-xlo)*(ax.invert?1-i/4:i/4), yv=ylo+(yhi-ylo)*(ay.invert?i/4:1-i/4);
+  const MINOR=4;
+  for(let i=0;i<=4*MINOR;i++){
+    const major=i%MINOR===0;
+    const gx=M.l+PW*i/(4*MINOR), gy=M.t+PH*i/(4*MINOR);
+    grid.appendChild(el("line",{x1:gx,y1:M.t,x2:gx,y2:M.t+PH,stroke:"#2E3B52",
+      "stroke-width":major?0.7:0.4,opacity:major?.6:.25}));
+    grid.appendChild(el("line",{x1:M.l,y1:gy,x2:M.l+PW,y2:gy,stroke:"#2E3B52",
+      "stroke-width":major?0.7:0.4,opacity:major?.6:.25}));
+    if(!major) continue;
+    const k=i/MINOR;
+    const xv=xlo+(xhi-xlo)*(ax.invert?1-k/4:k/4), yv=ylo+(yhi-ylo)*(ay.invert?k/4:1-k/4);
     grid.appendChild(Object.assign(el("text",{x:gx,y:M.t+PH+16,fill:"#5D6E88","font-size":9.5,
       "text-anchor":"middle","font-family":"Roboto Mono, monospace"}),{textContent:ax.fmt(xv)}));
     grid.appendChild(Object.assign(el("text",{x:M.l-9,y:gy+3.5,fill:"#5D6E88","font-size":9.5,
       "text-anchor":"end","font-family":"Roboto Mono, monospace"}),{textContent:ay.fmt(yv)}));
   }
+  // ゼロラインが軸範囲内にあれば強調（需給マップの象限境界）
+  const zline=(v,lo,hi,fn,horiz)=>{
+    if((v-lo)*(v-hi)>0) return;
+    const p=fn(0);
+    grid.appendChild(el("line", horiz
+      ? {x1:M.l,y1:p,x2:M.l+PW,y2:p,stroke:"#8798B0","stroke-width":1,opacity:.75}
+      : {x1:p,y1:M.t,x2:p,y2:M.t+PH,stroke:"#8798B0","stroke-width":1,opacity:.75}));
+  };
+  zline(0,xlo,xhi,X,false);
+  zline(0,ylo,yhi,Y,true);
   svg.appendChild(grid);
   svg.appendChild(Object.assign(el("text",{x:M.l+PW/2,y:H-10,fill:"#8798B0","font-size":10.5,
     "text-anchor":"middle","letter-spacing":".1em"}),{textContent:"燃料 →  "+ax.lab}));
@@ -601,6 +644,17 @@ function drawChart(){
     pts.appendChild(grp);
   }
   svg.appendChild(pts);
+
+  // 需給マップのときだけ象限ラベルを置く
+  if(S.view==="jukyu"){
+    const q=[["買い方勝ち・売り方負け",M.l+PW-8,M.t+PH-10,"end","var(--shu)"],
+             ["買い方負け・売り方勝ち",M.l+8,M.t+16,"start","var(--ai)"],
+             ["両方が負け（乱高下）",M.l+8,M.t+PH-10,"start","var(--mist2)"],
+             ["両方が勝ち（薄商い）",M.l+PW-8,M.t+16,"end","var(--mist2)"]];
+    for(const [t,x0,y0,anc,c] of q)
+      svg.appendChild(Object.assign(el("text",{x:x0,y:y0,fill:c,"font-size":10,
+        "text-anchor":anc,opacity:.85}),{textContent:t}));
+  }
 }
 
 /* ============================================================
@@ -622,18 +676,28 @@ function drawMarket(){
   svg.appendChild(el("rect",{x:M.l,y:y(0),width:PW,height:M.t+PH-y(0),fill:"#E8503A",opacity:.06}));
   svg.appendChild(el("line",{x1:M.l,y1:y(0),x2:M.l+PW,y2:y(0),stroke:"#5D6E88","stroke-width":1}));
 
-  for(let i=0;i<=4;i++){
-    const gy=M.t+PH*i/4, gv=hi-(hi-lo)*i/4;
-    svg.appendChild(el("line",{x1:M.l,y1:gy,x2:M.l+PW,y2:gy,stroke:"#2E3B52","stroke-width":.6,opacity:.4}));
-    svg.appendChild(Object.assign(el("text",{x:M.l-9,y:gy+3.5,fill:"#5D6E88","font-size":9.5,
-      "text-anchor":"end","font-family":"Roboto Mono, monospace"}),{textContent:gv.toFixed(0)}));
+  // Y軸: 1%刻みの補助線 + 5%ごとに主目盛
+  const yStep = (hi-lo) > 40 ? 5 : (hi-lo) > 16 ? 2 : 1;
+  for(let v=Math.ceil(lo/yStep)*yStep; v<=hi; v+=yStep){
+    const major = Math.abs(v % (yStep*5)) < 1e-9;
+    svg.appendChild(el("line",{x1:M.l,y1:y(v),x2:M.l+PW,y2:y(v),stroke:"#2E3B52",
+      "stroke-width":major?0.7:0.4,opacity:major?.55:.22}));
+    if(major||yStep>=5)
+      svg.appendChild(Object.assign(el("text",{x:M.l-9,y:y(v)+3.5,fill:"#5D6E88","font-size":9.5,
+        "text-anchor":"end","font-family":"Roboto Mono, monospace"}),{textContent:v.toFixed(0)}));
   }
+  // X軸: 全営業日に薄い縦線、8本おきに日付ラベル
   const step=Math.max(1,Math.ceil(n/8));
-  for(let i=0;i<n;i+=step){
-    svg.appendChild(Object.assign(el("text",{x:x(i),y:M.t+PH+17,fill:"#5D6E88","font-size":9.5,
-      "text-anchor":"middle","font-family":"Roboto Mono, monospace"}),
-      {textContent:se[i].d.slice(5).replace("-","/")}));
+  for(let i=0;i<n;i++){
+    const major=i%step===0;
+    svg.appendChild(el("line",{x1:x(i),y1:M.t,x2:x(i),y2:M.t+PH,stroke:"#2E3B52",
+      "stroke-width":major?0.7:0.4,opacity:major?.5:.2}));
+    if(major)
+      svg.appendChild(Object.assign(el("text",{x:x(i),y:M.t+PH+17,fill:"#5D6E88","font-size":9.5,
+        "text-anchor":"middle","font-family":"Roboto Mono, monospace"}),
+        {textContent:se[i].d.slice(5).replace("-","/")}));
   }
+  svg.appendChild(el("line",{x1:M.l,y1:y(0),x2:M.l+PW,y2:y(0),stroke:"#8798B0","stroke-width":1.2}));
 
   const line=(key,color,label)=>{
     let d="",first=true;
@@ -713,9 +777,11 @@ function drawDetail(){
     ${bar(s.shortPnl===null?0:10-s.shortPnl,30,pnlLoss?"var(--shu)":"var(--ai)")}
 
     <dl class="kv">
-      <dt>DTC（貸株残）</dt><dd>${f(s.dtcMargin)} 日</dd>
-      <dt>株不足度</dt><dd>${f(s.tight)}</dd>
-      <dt>5日残高変化率</dt><dd style="color:${s.cover5!==null&&s.cover5<0?"var(--shu)":"var(--mist)"}">${sg(s.cover5,1,"%")}</dd>
+      <dt>DTC（売り方）</dt><dd>${f(s.dtcMargin)} 日</dd>
+      <dt>DTC（買い方）</dt><dd>${f(s.dtcLong)} 日</dd>
+      <dt>売り方シェア</dt><dd>${f(s.tight,3)}</dd>
+      <dt>残高変化率 売り方</dt><dd style="color:${s.cover5!==null&&s.cover5<0?"var(--shu)":"var(--mist)"}">${sg(s.cover5,1,"%")} <span style="color:var(--mist2)">/ ${sg(s.cover20,1,"%")}</span></dd>
+      <dt>残高変化率 買い方</dt><dd>${sg(s.cover5Long,1,"%")} <span style="color:var(--mist2)">/ ${sg(s.cover20Long,1,"%")}</span></dd>
       <dt>52週高値まで</dt><dd>${f(s.hi52,1,"%")}</dd>
       <dt>ATR拡大率</dt><dd>${f(s.atrExp)}</dd>
       <dt>EMA整列</dt><dd>${s.emaOk?"○":"—"}</dd>
@@ -726,8 +792,12 @@ function drawDetail(){
       <dt>貸株残高（売り方）</dt><dd>${s.kashi===null?"—":(s.kashi/1e4).toFixed(1)+"万株"}</dd>
       <dt>融資残高（買い方）</dt><dd>${s.yushi===null?"—":(s.yushi/1e4).toFixed(1)+"万株"}</dd>
       <dt>売建加重平均単価</dt><dd>${f(s.uriTanka,1)} 円</dd>
+      <dt>買建加重平均単価</dt><dd>${f(s.kaiTanka,1)} 円</dd>
+      <dt>買い方評価損益率</dt><dd style="color:${s.longPnl<0?"var(--kincha)":"var(--midori)"}">${sg(s.longPnl,2,"%")}</dd>
       <dt>信用倍率</dt><dd>${f(s.bairitsu)} 倍</dd>
       <dt>需給スコア</dt><dd>${sg(s.jukyu,1,"%")}</dd>
+      <dt>差引残（貸株−融資）</dt><dd style="color:${s.netZan>0?"var(--shu)":"var(--mist)"}">${s.netZan===null?"—":(s.netZan/1e4).toFixed(1)+"万株"}</dd>
+      <dt>差引残 ÷ 出来高</dt><dd>${f(s.netZanDtc,2)} 日</dd>
     </dl>
     <div style="font-size:10.5px;color:var(--mist2);margin-top:10px;line-height:1.7">
       日証金の貸借データ（個人の信用売り）。機関の空売り残高は含まれない。
@@ -758,7 +828,10 @@ function drawTable(){
       <td><b>${s.pressure}</b></td>
       <td>${f(s.dtcMargin)}</td>
       <td style="color:${s.shortPnl<0?"var(--shu)":"var(--ai)"}">${sg(s.shortPnl,2)}</td>
-      <td>${f(s.tight)}</td>
+      <td style="color:${s.longPnl<0?"var(--kincha)":"var(--midori)"}">${sg(s.longPnl,2)}</td>
+      <td>${f(s.tight,3)}</td>
+      <td>${f(s.bairitsu,1)}</td>
+      <td>${sg(s.jukyu,0)}</td>
       <td style="color:${s.cover5!==null&&s.cover5<0?"var(--shu)":"var(--mist)"}">${sg(s.cover5)}</td>
       <td style="text-align:left">${state}</td></tr>`}).join("");
   document.querySelectorAll("#tbody tr").forEach(tr=>{
@@ -777,15 +850,20 @@ function select(code){S.sel=code;drawDetail();drawTable();}
    7. 描画統括 + イベント
    ============================================================ */
 function render(){
-  const isMkt=S.view==="market";
+  const isMkt=S.view==="market", isJukyu=S.view==="jukyu";
+  if(isJukyu){ S.x="longPnl"; S.y="shortPnl";
+    document.getElementById("sel-x").value="longPnl";
+    document.getElementById("sel-y").value="shortPnl"; }
   document.getElementById("ctl").style.display=isMkt?"none":"flex";
   document.querySelector(".main").style.gridTemplateColumns=isMkt?"1fr":"";
   document.querySelectorAll(".main .panel")[1].style.display=isMkt?"none":"";
   document.querySelector(".tbl-wrap").style.display=isMkt?"none":"";
   document.getElementById("chart-t").textContent =
-    isMkt?"市場レジーム推移" : S.view==="sector"?"業種別 燃料 × 着火":"燃料 × 着火";
+    isMkt?"市場レジーム推移" : isJukyu?"需給マップ 買い方 × 売り方"
+        : S.view==="sector"?"業種別 燃料 × 着火":"燃料 × 着火";
   document.getElementById("chart-s").textContent =
-    isMkt?"70%ile超＝売り方が積み上がった状態。ここでだけ銘柄別スコアを取りに行く"
+    isMkt?"朱＝売建、藍＝買建。ゼロラインより下がその陣営の負け"
+        : isJukyu?"右下＝上昇トレンドで売り方が踏まれている。対角線から外れた点が異常"
         : S.view==="sector"?"円の大きさ＝該当銘柄数。業種の資金移動を見る"
         : "等圧線＝燃料×着火の期待値。右上ほど踏み上げ圧が高い";
   isMkt?drawMarket():drawChart();
