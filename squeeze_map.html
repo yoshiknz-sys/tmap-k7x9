@@ -147,6 +147,8 @@ td:nth-child(2){font-family:"Zen Kaku Gothic New",sans-serif}
 tbody tr{cursor:pointer}
 tbody tr:hover{background:var(--ink700)}
 tbody tr.sel{background:var(--ink600)}
+.chip{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;
+  vertical-align:middle;flex:none}
 .pill{display:inline-block;font-size:9.5px;padding:1px 6px;border-radius:8px;letter-spacing:.06em}
 
 .foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--ink600);font-size:11px;color:var(--mist2);line-height:1.9}
@@ -215,7 +217,7 @@ dt[data-tip]{border-bottom-style:dashed}
     </div>
     <div class="hd-meta">
       <span class="badge">機関＋個人</span>
-      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.0</span>
+      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.1</span>
       <div class="meta-item">データ日<b class="mono" id="m-calc">—</b></div>
       <div class="meta-item">機関データ<b class="mono" id="m-inst">—</b></div>
       <div class="meta-item">生成日<b class="mono" id="m-gen">—</b></div>
@@ -378,7 +380,7 @@ dt[data-tip]{border-bottom-style:dashed}
       <thead><tr><th>タブ</th><th>何のためにあるか</th></tr></thead>
       <tbody>
         <tr><td>銘柄別</td><td>実際にエントリー判断をする場所。ここが本番。</td></tr>
-        <tr><td>業種別</td><td>業種全体が売られているのか、その1銘柄だけなのかを確かめる背景確認。円の大きさ＝該当銘柄数。</td></tr>
+        <tr><td>業種別</td><td>業種全体が売られているのか、その1銘柄だけなのかを確かめる背景確認。円の大きさ＝該当銘柄数、色＝業種。同じ色が下の表と個別カルテのバッジでも使われるので、色で対応が追える。</td></tr>
         <tr><td>需給マップ</td><td>横軸＝個人の買い方損益、縦軸＝個人の売り方損益。両者は逆相関するので点は対角線に並ぶ。<b>そこから外れた点が需給の歪んだ銘柄</b>。</td></tr>
         <tr><td>市場全体</td><td>今日そもそも狙いに行っていい日かの判定。表とカルテは非表示になる。</td></tr>
       </tbody>
@@ -474,7 +476,7 @@ dt[data-tip]{border-bottom-style:dashed}
   燃料＝DTC 40% + 売り方評価損益 40% + 売り方シェア 20%、着火＝52週高値まで 55% + ATR拡大率 45%。気圧＝燃料×着火。
   重みは <code>WT</code> オブジェクトで調整できる。<br>
   <b>符号規約</b>：<code>shortPnl</code> と <code>cover5</code> は<b>マイナスが燃料</b>。<br>
-  <span style="color:var(--mist)">UI版数 <b>v2.0</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
+  <span style="color:var(--mist)">UI版数 <b>v2.1</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
 </div>
 
 </div>
@@ -518,6 +520,18 @@ function score(s) {
   return s;
 }
 
+// --- 業種ごとの色。黄金角で色相を回して隣接業種が似ないようにする ---
+const SECTOR_COLORS = {};
+function sectorColor(name){
+  if(!name) return 'var(--mist2)';
+  if(!(name in SECTOR_COLORS)){
+    const i = Object.keys(SECTOR_COLORS).length;
+    SECTOR_COLORS[name] = `hsl(${Math.round((i * 137.508) % 360)} 58% 62%)`;
+  }
+  return SECTOR_COLORS[name];
+}
+const chip = sec => `<span class="chip" style="background:${sectorColor(sec)}" title="${sec||''}"></span>`;
+
 let DATA = { stocks: [] };
 let MARKET = null;
 let META   = {};
@@ -527,6 +541,8 @@ async function loadData() {
   if (!res.ok) throw new Error(`${DATA_URL} が読めません (HTTP ${res.status})`);
   const j = await res.json();
   DATA   = { stocks: j.stocks.map(score) };
+  // 出現順ではなく名前順で色を割り当て、日によって色が変わらないようにする
+  [...new Set(DATA.stocks.map(s => s.sector))].sort().forEach(sectorColor);
   MARKET = j.market;
   META   = { generated: j.generated, discDate: j.discDate, instDate: j.instDate, mode: j.mode };
 }
@@ -593,6 +609,7 @@ function bindTips(){
    ============================================================ */
 const S={view:"stock", x:"fuel", y:"ignition",
          flags:{exNoInst:true, emaOnly:false, runOnly:false},
+         keepX:null, keepY:null,
          sortK:"fuel", sortDir:"desc", sel:null};
 
 const AXES={
@@ -628,20 +645,23 @@ function rows(){
   });
 }
 function sectors(){
-  const keys=["fuel","ignition","dtcInst","instRatio","hedge","shortPnlInst",
-              "coverInst5","shortPnl","instN"];
+  // 数値の項目はすべて平均する。個別に列挙すると足し忘れる
+  const NUM = ["fuel","ignition","dtcInst","instRatio","instN","hedge","shortPnlInst",
+               "coverInst5","coverInst20","shortPnl","longPnl","dtcMargin","dtcLong",
+               "bairitsu","tight","jukyu","flowShort","flowLong","rotation","cover5",
+               "hi52","atrExp"];
   const m=new Map();
   for(const s of rows()){
     if(!m.has(s.sector)) m.set(s.sector,{sector:s.sector,n:0,
-      _sum:Object.fromEntries(keys.map(k=>[k,0])), _cnt:Object.fromEntries(keys.map(k=>[k,0]))});
+      _s:Object.fromEntries(NUM.map(k=>[k,0])), _c:Object.fromEntries(NUM.map(k=>[k,0]))});
     const a=m.get(s.sector); a.n++;
-    for(const k of keys) if(s[k]!==null){a._sum[k]+=s[k]; a._cnt[k]++}
+    for(const k of NUM) if(has(s[k])){a._s[k]+=s[k]; a._c[k]++}
   }
   return [...m.values()].map(a=>{
-    for(const k of keys) a[k]=a._cnt[k]?+(a._sum[k]/a._cnt[k]).toFixed(2):null;
+    for(const k of NUM) a[k]=a._c[k]?+(a._s[k]/a._c[k]).toFixed(2):null;
     a.pressure=Math.round((a.fuel||0)*(a.ignition||0)/10);
     a.name=a.sector; a.code=`n=${a.n}`;
-    delete a._sum; delete a._cnt;
+    delete a._s; delete a._c;
     return a;
   });
 }
@@ -723,20 +743,32 @@ function drawChart(){
     {textContent:"着火 →  "+ay.lab}));
 
   // --- 点 ---
+  //   業種別は業種色、銘柄別は気圧の色。ラベルは重なりを避けて間引く
   const pts=el("g");
-  for(const s of items){
+  const placed=[];                       // 既に置いたラベルの位置
+  const fits=(x0,y0)=>!placed.some(q=>Math.abs(q.y-y0)<11 && Math.abs(q.x-x0)<118);
+  const items2=[...items].sort((a,b)=>b.pressure-a.pressure);
+
+  for(const s of items2){
+    if(!has(s[S.x])||!has(s[S.y])) continue;
     const cx=X(s[S.x]), cy=Y(s[S.y]);
-    const r = S.view==="sector" ? clamp(4+s.n*1.1,5,14) : (s.running?7:5);
-    const c = pressColor(s.pressure/900);
+    const isSec=S.view==="sector";
+    const r = isSec ? clamp(5+Math.sqrt(s.n)*2.2,6,18) : (s.running?7:5);
+    const c = isSec ? sectorColor(s.sector) : pressColor(s.pressure/900);
     const grp=el("g",{class:"pt",tabindex:"0",role:"button","aria-label":s.name});
     if(s.running) grp.appendChild(el("circle",{cx,cy,r:r+4,fill:"none",stroke:"#E0A335","stroke-width":1,opacity:.75}));
-    grp.appendChild(el("circle",{cx,cy,r,fill:c,opacity:.88,stroke:"#0F1521","stroke-width":1}));
-    if(s.pressure>420||S.view==="sector")
-      grp.appendChild(Object.assign(el("text",{x:cx+r+4,y:cy+3.4,fill:"#E6ECF2","font-size":9.5}),
-        {textContent:S.view==="sector"?s.sector:s.name}));
+    grp.appendChild(el("circle",{cx,cy,r,fill:c,opacity:isSec?.9:.88,stroke:"#0F1521","stroke-width":1}));
+
+    const wantLabel = isSec || s.pressure>420;
+    if(wantLabel && fits(cx,cy)){
+      placed.push({x:cx,y:cy});
+      grp.appendChild(Object.assign(el("text",{x:cx+r+5,y:cy+3.4,
+        fill:isSec?c:"#E6ECF2","font-size":isSec?10.5:9.5}),
+        {textContent:isSec?`${s.sector} (${s.n})`:s.name}));
+    }
     grp.appendChild(Object.assign(el("title"),{textContent:
       `${s.name}\n燃料 ${s.fuel} / 着火 ${s.ignition} / 気圧 ${s.pressure}`}));
-    if(S.view!=="sector"){
+    if(!isSec){
       grp.addEventListener("click",()=>select(s.code));
       grp.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();select(s.code)}});
     }
@@ -875,7 +907,7 @@ function drawDetail(){
   box.innerHTML=`
     <div class="det-code">${s.code}　${f(s.px,1)}円</div>
     <h2 class="det-name">${s.name}</h2>
-    <span class="det-sector">${s.sector}</span>
+    <span class="det-sector" style="border-color:${sectorColor(s.sector)};color:${sectorColor(s.sector)}">${s.sector}</span>
 
     <div class="gauge-lab"><span ${T('fuel')}>FUEL 燃料</span><span>${s.fuel}</span></div>
     ${bar(s.fuel,100,"var(--shu)")}
@@ -942,7 +974,7 @@ function drawTable(){
       : s.emaOk ? '<span class="pill" style="background:rgba(79,168,139,.15);color:var(--midori)" data-tip="emaOk">EMA整列</span>' : "—");
     return `<tr data-code="${s.code}" class="${s.code===S.sel?"sel":""}">
       <td style="color:var(--mist2)">${s.code}</td>
-      <td>${s.name}</td>
+      <td>${chip(isSec?s.sector:s.sector)}${s.name}</td>
       <td style="color:${pressColor(s.fuel/100)}">${s.fuel}</td>
       <td>${s.ignition}</td>
       <td><b>${s.pressure}</b></td>
@@ -971,9 +1003,15 @@ function select(code){S.sel=code;drawDetail();drawTable();}
    ============================================================ */
 function render(){
   const isMkt=S.view==="market", isJukyu=S.view==="jukyu";
-  if(isJukyu){ S.x="longPnl"; S.y="shortPnl";
-    document.getElementById("sel-x").value="longPnl";
-    document.getElementById("sel-y").value="shortPnl"; }
+  // 需給マップは軸を固定する。抜けたら選び直す前の軸に戻す
+  if(isJukyu){
+    if(S.x!=="longPnl"||S.y!=="shortPnl"){ S.keepX=S.x; S.keepY=S.y; }
+    S.x="longPnl"; S.y="shortPnl";
+  }else if(S.keepX){
+    S.x=S.keepX; S.y=S.keepY; S.keepX=S.keepY=null;
+  }
+  document.getElementById("sel-x").value=S.x;
+  document.getElementById("sel-y").value=S.y;
   document.getElementById("ctl").style.display=isMkt?"none":"flex";
   document.querySelector(".main").style.gridTemplateColumns=isMkt?"1fr":"";
   document.querySelectorAll(".main .panel")[1].style.display=isMkt?"none":"";
