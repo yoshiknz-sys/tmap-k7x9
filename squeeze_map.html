@@ -272,13 +272,13 @@ tbody tr.sel{background:var(--ink600)}
       <th data-k="fuel" data-dir="desc">燃料</th>
       <th data-k="ignition">着火</th>
       <th data-k="pressure">気圧</th>
-      <th data-k="dtcMargin">DTC</th>
-      <th data-k="shortPnl" data-asc="1">売方損益</th>
-      <th data-k="longPnl" data-asc="1">買方損益</th>
-      <th data-k="tight">売方比</th>
+      <th data-k="dtcMargin" title="貸株残 ÷ 20日平均出来高。買い戻しに要する日数">DTC</th>
+      <th data-k="shortPnl" data-asc="1" title="売り方の評価損益率。マイナス＝売り方が負けている＝燃料">売方損益</th>
+      <th data-k="longPnl" data-asc="1" title="買い方の評価損益率。マイナス＝買い方が投げやすい">買方損益</th>
+      <th data-k="tight" title="売り方シェア = 貸株残 ÷ (貸株残＋融資残)。0.5超で株不足">売方比</th>
       <th data-k="bairitsu" data-asc="1">信用倍率</th>
-      <th data-k="jukyu">需給</th>
-      <th data-k="cover5" data-asc="1">5日残高Δ</th>
+      <th data-k="jukyu" title="需給スコア。プラスが大きいほど将来の売り需要が大きく下落圧力">需給</th>
+      <th data-k="cover5" data-asc="1" title="貸株残の5営業日変化率。マイナス＝残高減＝買い戻し">5日残高Δ</th>
       <th data-k="state">状態</th>
     </tr></thead>
     <tbody id="tbody"></tbody>
@@ -409,7 +409,10 @@ tbody tr.sel{background:var(--ink600)}
         <tr><td>DTC（買い方）</td><td>融資残高株数 ÷ 20日平均出来高。下げたときに投げが出続ける日数。大きいほど戻り売り圧力が重い。</td></tr>
         <tr><td>買方損益</td><td>買建加重平均単価と現値から算出した買い方の評価損益率。<b>マイナス＝買い方が投げやすい</b>。深く沈んだ後の反発が踏み上げの引き金になる。</td></tr>
         <tr><td>売方損益</td><td>売建加重平均単価と現値から算出した売り方の評価損益率。<b>マイナス＝売り方が負けている＝燃料</b>。</td></tr>
-        <tr><td>株不足</td><td>売り方シェア＝貸株残 ÷ (貸株残＋融資残)。0〜1に収まり、<b>0.5超で貸株残が融資残を上回る＝株不足</b>。逆日歩の代理変数。</td></tr>
+        <tr><td>売方比</td><td><b>売り方シェア</b>の略。<code>貸株残 ÷ (貸株残＋融資残)</code>。信用残高全体のうち売り方が占める割合。
+          0.2なら買い方が4倍いる状態、0.5で拮抗、<b>0.5超は貸株残が融資残を上回る＝株不足</b>で逆日歩が付きやすい。
+          信用倍率と同じ情報を別の形にしたもので <code>売方比 = 1 ÷ (信用倍率 + 1)</code>。
+          信用倍率は0.5倍から9999倍まで散らばって軸に使えないので、散布図ではこちらを使う。</td></tr>
         <tr><td>5日残高Δ</td><td><code>(当日の貸株残 ÷ 5営業日前 - 1) × 100</code>。<b>マイナス＝残高減少＝買い戻し</b>。</td></tr>
         <tr><td>信用倍率</td><td>融資残 ÷ 貸株残（金額ベース）。<b>低いほど売り方が多い</b>。1倍を割ると貸株残が融資残を上回る。数百倍以上は売り方がほぼいない銘柄で、他の指標も当てにならない。</td></tr>
         <tr><td>需給</td><td>需給スコア。プラスが大きいほど将来の売り需要（買い方の手仕舞い）が大きく下落圧力。マイナスは将来の買い需要が大きく上昇圧力。</td></tr>
@@ -445,7 +448,8 @@ tbody tr.sel{background:var(--ink600)}
   データ: 日証金 貸借取引残高（shinyo_hyoka_v12）＋ mon2 の価格パネル。毎営業日 Colab から <code>squeeze.json</code> を更新。<br>
   燃料＝DTC 40% + 売り方評価損益 40% + 売り方シェア 20%、着火＝52週高値まで 55% + ATR拡大率 45%。気圧＝燃料×着火。
   重みは <code>WT</code> オブジェクトで調整できる。<br>
-  <b>符号規約</b>：<code>shortPnl</code> と <code>cover5</code> は<b>マイナスが燃料</b>。
+  <b>符号規約</b>：<code>shortPnl</code> と <code>cover5</code> は<b>マイナスが燃料</b>。<br>
+  <span style="color:var(--mist)">UI版数 <b>v1.5</b>（この数字が古ければHTMLが更新されていない）</span>
 </div>
 
 </div>
@@ -560,7 +564,7 @@ function sectors(){
    ============================================================ */
 const NS="http://www.w3.org/2000/svg";
 const el=(t,a={})=>{const n=document.createElementNS(NS,t);for(const k in a)n.setAttribute(k,a[k]);return n};
-const W=760,H=500,M={t:18,r:22,b:46,l:56};
+const W=760,H=500,M={t:18,r:26,b:48,l:64};
 const PW=W-M.l-M.r, PH=H-M.t-M.b;
 
 function pressColor(p){          // 0..1 → 藍→朱
@@ -602,16 +606,16 @@ function drawChart(){
   for(let i=0;i<=4*MINOR;i++){
     const major=i%MINOR===0;
     const gx=M.l+PW*i/(4*MINOR), gy=M.t+PH*i/(4*MINOR);
-    grid.appendChild(el("line",{x1:gx,y1:M.t,x2:gx,y2:M.t+PH,stroke:"#2E3B52",
-      "stroke-width":major?0.7:0.4,opacity:major?.6:.25}));
-    grid.appendChild(el("line",{x1:M.l,y1:gy,x2:M.l+PW,y2:gy,stroke:"#2E3B52",
-      "stroke-width":major?0.7:0.4,opacity:major?.6:.25}));
+    grid.appendChild(el("line",{x1:gx,y1:M.t,x2:gx,y2:M.t+PH,stroke:"#4A5B78",
+      "stroke-width":0.8,opacity:.75}));
+    grid.appendChild(el("line",{x1:M.l,y1:gy,x2:M.l+PW,y2:gy,stroke:"#4A5B78",
+      "stroke-width":0.8,opacity:.75}));
     if(!major) continue;
     const k=i/MINOR;
     const xv=xlo+(xhi-xlo)*(ax.invert?1-k/4:k/4), yv=ylo+(yhi-ylo)*(ay.invert?k/4:1-k/4);
-    grid.appendChild(Object.assign(el("text",{x:gx,y:M.t+PH+16,fill:"#5D6E88","font-size":9.5,
+    grid.appendChild(Object.assign(el("text",{x:gx,y:M.t+PH+17,fill:"#93A2B8","font-size":10.5,
       "text-anchor":"middle","font-family":"Roboto Mono, monospace"}),{textContent:ax.fmt(xv)}));
-    grid.appendChild(Object.assign(el("text",{x:M.l-9,y:gy+3.5,fill:"#5D6E88","font-size":9.5,
+    grid.appendChild(Object.assign(el("text",{x:M.l-10,y:gy+3.5,fill:"#93A2B8","font-size":10.5,
       "text-anchor":"end","font-family":"Roboto Mono, monospace"}),{textContent:ay.fmt(yv)}));
   }
   // ゼロラインが軸範囲内にあれば強調（需給マップの象限境界）
@@ -675,37 +679,39 @@ function drawMarket(){
     "font-size":12,"text-anchor":"middle"}),{textContent:"履歴データがまだありません"}));return}
 
   const vals=se.flatMap(r=>[r.kai,r.uri]).filter(v=>v!==null);
-  const lo=Math.min(...vals,0)-2, hi=Math.max(...vals,0)+2;
+  // 0を必ず含め、2刻みの目盛りにきれいに収まるよう上下を丸める
+  const yStep = (Math.max(...vals,0)-Math.min(...vals,0)) > 50 ? 5 : 2;
+  const lo = Math.floor(Math.min(...vals,0)/yStep)*yStep - yStep;
+  const hi = Math.ceil (Math.max(...vals,0)/yStep)*yStep + yStep;
   const n=se.length;
   const x=i=>M.l+PW*i/Math.max(n-1,1), y=v=>M.t+PH-(v-lo)/(hi-lo)*PH;
 
-  // ゼロライン（この上下で売り方/買い方の勝ち負けが分かれる）
+  // ゼロラインの上下で陣営の勝ち負けを塗り分け
   svg.appendChild(el("rect",{x:M.l,y:M.t,width:PW,height:y(0)-M.t,fill:"#3D8FD1",opacity:.06}));
   svg.appendChild(el("rect",{x:M.l,y:y(0),width:PW,height:M.t+PH-y(0),fill:"#E8503A",opacity:.06}));
-  svg.appendChild(el("line",{x1:M.l,y1:y(0),x2:M.l+PW,y2:y(0),stroke:"#5D6E88","stroke-width":1}));
 
-  // Y軸: 1%刻みの補助線 + 5%ごとに主目盛
-  const yStep = (hi-lo) > 40 ? 5 : (hi-lo) > 16 ? 2 : 1;
-  for(let v=Math.ceil(lo/yStep)*yStep; v<=hi; v+=yStep){
-    const major = Math.abs(v % (yStep*5)) < 1e-9;
-    svg.appendChild(el("line",{x1:M.l,y1:y(v),x2:M.l+PW,y2:y(v),stroke:"#2E3B52",
-      "stroke-width":major?0.7:0.4,opacity:major?.55:.22}));
-    if(major||yStep>=5)
-      svg.appendChild(Object.assign(el("text",{x:M.l-9,y:y(v)+3.5,fill:"#5D6E88","font-size":9.5,
-        "text-anchor":"end","font-family":"Roboto Mono, monospace"}),{textContent:v.toFixed(0)}));
+  // Y軸: 2刻みで全部にラベル
+  for(let v=lo; v<=hi+1e-9; v+=yStep){
+    const zero=Math.abs(v)<1e-9;
+    svg.appendChild(el("line",{x1:M.l,y1:y(v),x2:M.l+PW,y2:y(v),
+      stroke:zero?"#93A2B8":"#4A5B78","stroke-width":0.8,opacity:zero?.95:.75}));
+    svg.appendChild(Object.assign(el("text",{x:M.l-9,y:y(v)+3.5,
+      fill:zero?"#D6DEE9":"#93A2B8","font-size":10.5,
+      "text-anchor":"end","font-family":"Roboto Mono, monospace"}),{textContent:v.toFixed(0)}));
   }
-  // X軸: 全営業日に薄い縦線、8本おきに日付ラベル
-  const step=Math.max(1,Math.ceil(n/8));
+
+  // X軸: 縦線は毎日。ラベルは重ならない範囲で毎日、無理なら間引く
+  const perLabel=36, maxLabels=Math.floor(PW/perLabel);
+  const step=n<=maxLabels?1:Math.ceil(n/maxLabels);
   for(let i=0;i<n;i++){
     const major=i%step===0;
-    svg.appendChild(el("line",{x1:x(i),y1:M.t,x2:x(i),y2:M.t+PH,stroke:"#2E3B52",
-      "stroke-width":major?0.7:0.4,opacity:major?.5:.2}));
+    svg.appendChild(el("line",{x1:x(i),y1:M.t,x2:x(i),y2:M.t+PH,stroke:"#4A5B78",
+      "stroke-width":0.8,opacity:.75}));
     if(major)
-      svg.appendChild(Object.assign(el("text",{x:x(i),y:M.t+PH+17,fill:"#5D6E88","font-size":9.5,
+      svg.appendChild(Object.assign(el("text",{x:x(i),y:M.t+PH+17,fill:"#93A2B8","font-size":9.5,
         "text-anchor":"middle","font-family":"Roboto Mono, monospace"}),
         {textContent:se[i].d.slice(5).replace("-","/")}));
   }
-  svg.appendChild(el("line",{x1:M.l,y1:y(0),x2:M.l+PW,y2:y(0),stroke:"#8798B0","stroke-width":1.2}));
 
   const line=(key,color,label)=>{
     let d="",first=true;
