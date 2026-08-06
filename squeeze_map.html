@@ -217,7 +217,7 @@ dt[data-tip]{border-bottom-style:dashed}
     </div>
     <div class="hd-meta">
       <span class="badge">機関＋個人</span>
-      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.1</span>
+      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.2</span>
       <div class="meta-item">データ日<b class="mono" id="m-calc">—</b></div>
       <div class="meta-item">機関データ<b class="mono" id="m-inst">—</b></div>
       <div class="meta-item">生成日<b class="mono" id="m-gen">—</b></div>
@@ -274,6 +274,10 @@ dt[data-tip]{border-bottom-style:dashed}
       <option value="shortPnl">個人 売り方評価損益率</option>
       <option value="longPnl">個人 買い方評価損益率</option>
     </select>
+  </div>
+  <div class="ctl-group">
+    <span class="ctl-lab">点の色</span>
+    <button class="tg" id="tg-color" aria-pressed="true" data-tip="colorBy">業種で色分け</button>
   </div>
   <div class="ctl-group">
     <span class="ctl-lab">絞り込み</span>
@@ -476,7 +480,7 @@ dt[data-tip]{border-bottom-style:dashed}
   燃料＝DTC 40% + 売り方評価損益 40% + 売り方シェア 20%、着火＝52週高値まで 55% + ATR拡大率 45%。気圧＝燃料×着火。
   重みは <code>WT</code> オブジェクトで調整できる。<br>
   <b>符号規約</b>：<code>shortPnl</code> と <code>cover5</code> は<b>マイナスが燃料</b>。<br>
-  <span style="color:var(--mist)">UI版数 <b>v2.1</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
+  <span style="color:var(--mist)">UI版数 <b>v2.2</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
 </div>
 
 </div>
@@ -576,6 +580,7 @@ const TERMS = {
   hi52:      ['52週高値まで', '現値から52週高値までの距離。小さいほど高値が近く、抜けたときに動き出しやすい。'],
   atrExp:    ['ATR拡大率', 'ATR20 ÷ ATR60。1を超えると直近の値動きが平常時より荒くなっている。', 'ATR20 ÷ ATR60'],
   emaOk:     ['EMA整列', '20 > 60 > 120 > 200 の順に並んでいるか。上昇トレンドの確認。'],
+  colorBy:   ['点の色', '銘柄別の気圧図で、点の色を業種にするか気圧にするか。気圧の高さは点の位置（右上ほど高い）で既に分かるので、色は業種に使ったほうが情報が増える。業種別タブは常に業種色。'],
   running:   ['進行中', '機関残高が5日で5%以上減り、かつATRが拡大している状態。すでに買い戻しが始まっている可能性がある。予測ではなく検知なので、新規エントリーには向かない。'],
 };
 
@@ -609,7 +614,7 @@ function bindTips(){
    ============================================================ */
 const S={view:"stock", x:"fuel", y:"ignition",
          flags:{exNoInst:true, emaOnly:false, runOnly:false},
-         keepX:null, keepY:null,
+         keepX:null, keepY:null, colorBy:'sector',
          sortK:"fuel", sortDir:"desc", sel:null};
 
 const AXES={
@@ -754,7 +759,8 @@ function drawChart(){
     const cx=X(s[S.x]), cy=Y(s[S.y]);
     const isSec=S.view==="sector";
     const r = isSec ? clamp(5+Math.sqrt(s.n)*2.2,6,18) : (s.running?7:5);
-    const c = isSec ? sectorColor(s.sector) : pressColor(s.pressure/900);
+    const c = (isSec || S.colorBy==="sector") ? sectorColor(s.sector)
+                                              : pressColor(s.pressure/900);
     const grp=el("g",{class:"pt",tabindex:"0",role:"button","aria-label":s.name});
     if(s.running) grp.appendChild(el("circle",{cx,cy,r:r+4,fill:"none",stroke:"#E0A335","stroke-width":1,opacity:.75}));
     grp.appendChild(el("circle",{cx,cy,r,fill:c,opacity:isSec?.9:.88,stroke:"#0F1521","stroke-width":1}));
@@ -763,7 +769,7 @@ function drawChart(){
     if(wantLabel && fits(cx,cy)){
       placed.push({x:cx,y:cy});
       grp.appendChild(Object.assign(el("text",{x:cx+r+5,y:cy+3.4,
-        fill:isSec?c:"#E6ECF2","font-size":isSec?10.5:9.5}),
+        fill:(isSec||S.colorBy==="sector")?c:"#E6ECF2","font-size":isSec?10.5:9.5}),
         {textContent:isSec?`${s.sector} (${s.n})`:s.name}));
     }
     grp.appendChild(Object.assign(el("title"),{textContent:
@@ -1034,10 +1040,17 @@ document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
 }));
 document.getElementById("sel-x").addEventListener("change",e=>{S.x=e.target.value;render()});
 document.getElementById("sel-y").addEventListener("change",e=>{S.y=e.target.value;render()});
-document.querySelectorAll(".tg").forEach(b=>b.addEventListener("click",()=>{
+document.querySelectorAll(".tg[data-flag]").forEach(b=>b.addEventListener("click",()=>{
   const on=b.getAttribute("aria-pressed")==="true";
   b.setAttribute("aria-pressed",String(!on)); S.flags[b.dataset.flag]=!on; render();
 }));
+document.getElementById("tg-color").addEventListener("click",e=>{
+  const on=e.currentTarget.getAttribute("aria-pressed")==="true";
+  e.currentTarget.setAttribute("aria-pressed",String(!on));
+  e.currentTarget.textContent = on ? "気圧で色分け" : "業種で色分け";
+  S.colorBy = on ? "pressure" : "sector";
+  render();
+});
 document.querySelectorAll("#tbl th").forEach(th=>th.addEventListener("click",()=>{
   const k=th.dataset.k;
   if(S.sortK===k) S.sortDir=S.sortDir==="desc"?"asc":"desc";
