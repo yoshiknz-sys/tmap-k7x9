@@ -217,11 +217,11 @@ dt[data-tip]{border-bottom-style:dashed}
     </div>
     <div class="hd-meta">
       <span class="badge">機関＋個人</span>
-      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.2</span>
+      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.4</span>
       <div class="meta-item">データ日<b class="mono" id="m-calc">—</b></div>
       <div class="meta-item">機関データ<b class="mono" id="m-inst">—</b></div>
       <div class="meta-item">生成日<b class="mono" id="m-gen">—</b></div>
-      <div class="meta-item">対象<b class="mono" id="m-univ">56</b></div>
+      <div class="meta-item">表示<b class="mono" id="m-univ">—</b></div>
     </div>
   </div>
 </header>
@@ -240,7 +240,7 @@ dt[data-tip]{border-bottom-style:dashed}
 
 <div class="ctl" id="ctl">
   <div class="ctl-group">
-    <span class="ctl-lab">燃料（X軸）</span>
+    <span class="ctl-lab" data-tip="fuel">燃料（X軸）</span>
     <select id="sel-x">
       <optgroup label="総合">
         <option value="fuel">燃料スコア</option>
@@ -265,7 +265,7 @@ dt[data-tip]{border-bottom-style:dashed}
     </select>
   </div>
   <div class="ctl-group">
-    <span class="ctl-lab">着火（Y軸）</span>
+    <span class="ctl-lab" data-tip="ignition">着火（Y軸）</span>
     <select id="sel-y">
       <option value="ignition">着火スコア</option>
       <option value="hi52">52週高値まで</option>
@@ -282,8 +282,8 @@ dt[data-tip]{border-bottom-style:dashed}
   <div class="ctl-group">
     <span class="ctl-lab">絞り込み</span>
     <button class="tg" aria-pressed="true"  data-flag="exNoInst" data-tip="機関の空売り残高報告がない銘柄を隠す。0.5%に達していない＝機関の売りが溜まっていない、という情報でもある">機関データなしを除外</button>
-    <button class="tg" aria-pressed="false" data-flag="emaOnly">EMA整列のみ</button>
-    <button class="tg" aria-pressed="false" data-flag="runOnly">進行中のみ</button>
+    <button class="tg" aria-pressed="false" data-flag="emaOnly" data-tip="emaOnly">EMA整列のみ</button>
+    <button class="tg" aria-pressed="false" data-flag="runOnly" data-tip="running">進行中のみ</button>
   </div>
 </div>
 
@@ -480,7 +480,7 @@ dt[data-tip]{border-bottom-style:dashed}
   燃料＝DTC 40% + 売り方評価損益 40% + 売り方シェア 20%、着火＝52週高値まで 55% + ATR拡大率 45%。気圧＝燃料×着火。
   重みは <code>WT</code> オブジェクトで調整できる。<br>
   <b>符号規約</b>：<code>shortPnl</code> と <code>cover5</code> は<b>マイナスが燃料</b>。<br>
-  <span style="color:var(--mist)">UI版数 <b>v2.2</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
+  <span style="color:var(--mist)">UI版数 <b>v2.4</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
 </div>
 
 </div>
@@ -581,7 +581,9 @@ const TERMS = {
   atrExp:    ['ATR拡大率', 'ATR20 ÷ ATR60。1を超えると直近の値動きが平常時より荒くなっている。', 'ATR20 ÷ ATR60'],
   emaOk:     ['EMA整列', '20 > 60 > 120 > 200 の順に並んでいるか。上昇トレンドの確認。'],
   colorBy:   ['点の色', '銘柄別の気圧図で、点の色を業種にするか気圧にするか。気圧の高さは点の位置（右上ほど高い）で既に分かるので、色は業種に使ったほうが情報が増える。業種別タブは常に業種色。'],
-  running:   ['進行中', '機関残高が5日で5%以上減り、かつATRが拡大している状態。すでに買い戻しが始まっている可能性がある。予測ではなく検知なので、新規エントリーには向かない。'],
+  emaOnly:   ['EMA整列のみ', '20>60>120>200 の順に並んでいる銘柄だけに絞る。踏み上げ狙いは「下げてきた銘柄の逆張り」になりやすいので、それを避けるための安全弁。順張り＋需給燃料の形に限定する。', 'EMA20 > EMA60 > EMA120 > EMA200'],
+  noSeller:  ['売り方不在', '機関の空売り残高報告がなく、日証金の貸株残もゼロ。売り方がそもそもいないので踏み上げは起きない。買い方だけが残っている場合、その戻り売りが上値を重くする。'],
+  running:   ['進行中', 'すでに買い戻しが始まっている可能性がある状態。機関の残高が5営業日で5%以上減り、かつ値動きが荒くなっている銘柄。ただし機関データは2営業日前なので検知としては遅れる。予測ではなく事後確認なので、新規エントリーの根拠にはしないこと。', '機関残高5日変化 < -5% かつ ATR20÷ATR60 > 1.15'],
 };
 
 const tipEl = () => document.getElementById('tip');
@@ -897,7 +899,9 @@ function drawDetail(){
   const s=DATA.stocks.find(x=>x.code===S.sel);
   if(!s){box.innerHTML='<div class="det-empty">気圧図の点、または下の表の行を<br>選ぶと内訳が出ます</div>';
          tag.textContent="点を選択";return}
-  tag.textContent=s.running?"買い戻し進行中":(s.noInst?"機関データなし":"待機");
+  const noSeller = s.noInst && !has(s.shortPnl);
+  tag.textContent = noSeller ? "売り方不在" : s.running ? "買い戻し進行中"
+                  : s.noInst ? "機関データなし" : "待機";
   const f =(v,d=2,su="")=>has(v)?v.toFixed(d)+su:"—";
   const sg=(v,d=2,su="")=>has(v)?(v>0?"+":"")+v.toFixed(d)+su:"—";
   const man= v=>has(v)?(v/1e4).toFixed(0)+"万株":"—";
@@ -922,10 +926,11 @@ function drawDetail(){
 
     <div class="sec-hd">機関ショート<span>JPX・${META.instDate||"—"}時点</span></div>
     ${s.noInst
-      ? '<div style="font-size:11.5px;color:var(--mist2);line-height:1.8">0.5%以上を報告している機関がありません。機関の売りが溜まっていない状態です。</div>'
+      ? `<div style="font-size:11.5px;color:var(--mist2);line-height:1.8">0.5%以上を報告している機関がありません。${
+          has(s.shortPnl)?"":"日証金の貸株残もゼロで、<b style=\"color:var(--paper)\">売り方が両方いない</b>状態です。踏み上げの燃料はありません。"}</div>`
       : `<dl class="kv" style="margin-top:6px">
       <dt ${T('instRatio')}>残高割合</dt><dd>${f(s.instRatio,2,"%")}</dd>
-      <dt>残高</dt><dd>${man(s.instQty)}</dd>
+      <dt ${T('instRatio')}>残高</dt><dd>${man(s.instQty)}</dd>
       <dt ${T('dtcInst')}>機関DTC</dt><dd>${f(s.dtcInst)} 日</dd>
       <dt ${T('instN')}>報告機関数</dt><dd>${s.instN||0} 社</dd>
       <dt ${T('hedge')}>ヘッジ度</dt><dd>${f(s.hedge)}</dd>
@@ -951,7 +956,7 @@ function drawDetail(){
       <dt ${T('jukyu')}>需給スコア</dt><dd>${sg(s.jukyu,1,"%")}</dd>
       <dt ${T('rotation')}>回転日数</dt><dd>${f(s.rotation,1)} 日</dd>
       <dt ${T('flowShort')}>当日フロー 売/買</dt><dd>${sg(s.flowShort,2,"%")} <span style="color:var(--mist2)">/ ${sg(s.flowLong,2,"%")}</span></dd>
-      <dt>貸株残 / 融資残</dt><dd>${man(s.kashi)} / ${man(s.yushi)}</dd>
+      <dt ${T('netZan')}>貸株残 / 融資残</dt><dd>${man(s.kashi)} / ${man(s.yushi)}</dd>
     </dl>
 
     <div class="sec-hd">価格<span>${META.discDate||"—"}</span></div>
@@ -975,7 +980,11 @@ function drawTable(){
   const f =(v,d=2)=>has(v)?v.toFixed(d):"—";
   const sg=(v,d=1)=>has(v)?(v>0?"+":"")+v.toFixed(d):"—";
   document.getElementById("tbody").innerHTML=data.map(s=>{
-    const state = isSec ? "" : (s.running
+    const noSeller = !isSec && s.noInst && !has(s.shortPnl);
+    const state = isSec ? "" : (
+      noSeller
+      ? '<span class="pill" style="background:var(--ink600);color:var(--mist2)" data-tip="noSeller">売り方不在</span>'
+      : s.running
       ? '<span class="pill" style="background:rgba(224,163,53,.18);color:var(--kincha)" data-tip="running">進行中</span>'
       : s.emaOk ? '<span class="pill" style="background:rgba(79,168,139,.15);color:var(--midori)" data-tip="emaOk">EMA整列</span>' : "—");
     return `<tr data-code="${s.code}" class="${s.code===S.sel?"sel":""}">
@@ -999,7 +1008,11 @@ function drawTable(){
     th.removeAttribute("data-dir");
     if(th.dataset.k===S.sortK) th.setAttribute("data-dir",S.sortDir);
   });
-  document.getElementById("m-univ").textContent=data.length;
+  const tot = S.view==="sector" ? sectors().length : DATA.stocks.length;
+  const hid = tot - data.length;
+  document.getElementById("m-univ").innerHTML =
+    `${data.length} / ${tot}` + (hid>0
+      ? ` <span style="color:var(--kincha);font-size:10px">−${hid}件</span>` : '');
 }
 
 function select(code){S.sel=code;drawDetail();drawTable();}
