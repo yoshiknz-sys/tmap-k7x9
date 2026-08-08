@@ -108,6 +108,28 @@ select{
 svg{display:block;width:100%;height:auto}
 
 /* ---------- detail ---------- */
+.search{position:relative;padding:10px 12px;border-bottom:1px solid var(--ink600)}
+.search input{
+  width:100%;box-sizing:border-box;background:var(--ink900);color:var(--paper);
+  border:1px solid var(--ink500);border-radius:var(--r);padding:7px 10px;
+  font-family:"Zen Kaku Gothic New",sans-serif;font-size:12px;
+}
+.search input::placeholder{color:var(--mist2)}
+.search input:focus{outline:none;border-color:var(--kincha)}
+.qlist{
+  position:absolute;left:12px;right:12px;top:46px;z-index:60;max-height:320px;overflow-y:auto;
+  background:var(--ink700);border:1px solid var(--ink500);border-radius:var(--r);
+  box-shadow:0 10px 30px rgba(0,0,0,.55);display:none;
+}
+.qlist.on{display:block}
+.qitem{display:flex;align-items:center;gap:7px;padding:7px 10px;cursor:pointer;
+  border-bottom:1px solid var(--ink600);font-size:11.5px}
+.qitem:last-child{border-bottom:none}
+.qitem:hover,.qitem.hi{background:var(--ink600)}
+.qitem .c{font-family:"Roboto Mono",monospace;color:var(--mist2);font-size:10.5px;width:42px;flex:none}
+.qitem .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qitem .f{font-family:"Roboto Mono",monospace;color:var(--mist);font-size:10.5px;flex:none}
+.qempty{padding:10px;color:var(--mist2);font-size:11.5px;text-align:center}
 .det{padding:14px}
 .det-empty{color:var(--mist2);font-size:12px;text-align:center;padding:60px 20px;line-height:1.9}
 .det-name{font-size:16px;font-weight:700;margin:0 0 1px}
@@ -217,7 +239,7 @@ dt[data-tip]{border-bottom-style:dashed}
     </div>
     <div class="hd-meta">
       <span class="badge">機関＋個人</span>
-      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.4</span>
+      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.5</span>
       <div class="meta-item">データ日<b class="mono" id="m-calc">—</b></div>
       <div class="meta-item">機関データ<b class="mono" id="m-inst">—</b></div>
       <div class="meta-item">生成日<b class="mono" id="m-gen">—</b></div>
@@ -296,8 +318,14 @@ dt[data-tip]{border-bottom-style:dashed}
     <div class="chart-body"><svg id="chart" viewBox="0 0 760 500" role="img" aria-label="燃料と着火の散布図"></svg></div>
   </div>
 
-  <div class="panel">
+  <div class="panel" id="det-panel">
     <div class="panel-hd"><span class="panel-t">個別カルテ</span><span class="panel-s" id="det-s">点を選択</span></div>
+    <div class="search">
+      <input id="q" type="text" autocomplete="off" spellcheck="false"
+             placeholder="コード・銘柄名で検索（例: 285A / キオクシア）"
+             aria-label="銘柄を検索" role="combobox" aria-expanded="false" aria-controls="qlist">
+      <div class="qlist" id="qlist" role="listbox"></div>
+    </div>
     <div class="det" id="det"><div class="det-empty">気圧図の点、または下の表の行を<br>選ぶと内訳が出ます</div></div>
   </div>
 </div>
@@ -480,7 +508,7 @@ dt[data-tip]{border-bottom-style:dashed}
   燃料＝DTC 40% + 売り方評価損益 40% + 売り方シェア 20%、着火＝52週高値まで 55% + ATR拡大率 45%。気圧＝燃料×着火。
   重みは <code>WT</code> オブジェクトで調整できる。<br>
   <b>符号規約</b>：<code>shortPnl</code> と <code>cover5</code> は<b>マイナスが燃料</b>。<br>
-  <span style="color:var(--mist)">UI版数 <b>v2.4</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
+  <span style="color:var(--mist)">UI版数 <b>v2.5</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
 </div>
 
 </div>
@@ -1002,7 +1030,7 @@ function drawTable(){
       <td style="color:${s.shortPnl<0?"var(--shu)":"var(--ai)"}">${sg(s.shortPnl,2)}</td>
       <td style="text-align:left">${state}</td></tr>`}).join("");
   document.querySelectorAll("#tbody tr").forEach(tr=>{
-    if(!isSec) tr.addEventListener("click",()=>select(tr.dataset.code));
+    if(!isSec) tr.addEventListener("click",()=>select(tr.dataset.code, true));
   });
   document.querySelectorAll("#tbl th").forEach(th=>{
     th.removeAttribute("data-dir");
@@ -1015,7 +1043,73 @@ function drawTable(){
       ? ` <span style="color:var(--kincha);font-size:10px">−${hid}件</span>` : '');
 }
 
-function select(code){S.sel=code;drawDetail();drawTable();}
+function select(code, scroll){
+  S.sel=code; drawDetail(); drawTable();
+  if(!scroll) return;
+  // カルテが画面外なら、そこまでスクロールする(表から選んだとき用)
+  try{
+    const el=document.getElementById("det-panel");
+    const r=el.getBoundingClientRect();
+    if(r.top < 0 || r.top > innerHeight - 160) el.scrollIntoView({block:"start", behavior:"smooth"});
+  }catch(e){}
+}
+
+/* ---------- 銘柄検索 ---------- */
+//   絞り込みで隠れている銘柄も検索対象にする。
+//   「探したのに無い」を避けるため、ここだけはフィルタを通さない
+function bindSearch(){
+  const inp=document.getElementById("q"), list=document.getElementById("qlist");
+  if(!inp||!list) return;
+  let hits=[], hi=-1;
+
+  const norm = t => String(t).normalize("NFKC").toUpperCase()
+                     .replace(/[ぁ-ん]/g, c => String.fromCharCode(c.charCodeAt(0)+0x60));
+  const close = ()=>{ list.classList.remove("on"); inp.setAttribute("aria-expanded","false"); hi=-1; };
+
+  function search(q){
+    const k=norm(q.trim());
+    if(!k){ close(); return; }
+    const all=DATA.stocks;
+    const starts=[], incl=[];
+    for(const s of all){
+      const c=norm(s.code), n=norm(s.name);
+      if(c.startsWith(k)||n.startsWith(k)) starts.push(s);
+      else if(c.includes(k)||n.includes(k)) incl.push(s);
+    }
+    hits=[...starts,...incl].slice(0,10);
+    if(!hits.length){
+      list.innerHTML='<div class="qempty">該当する銘柄がありません</div>';
+    }else{
+      list.innerHTML=hits.map((s,i)=>
+        `<div class="qitem${i===hi?" hi":""}" data-i="${i}" role="option">
+           <span class="c">${s.code}</span>${chip(s.sector)}
+           <span class="n">${s.name}</span>
+           <span class="f">${s.noInst?"—":"燃料 "+s.fuel}</span>
+         </div>`).join("");
+      list.querySelectorAll(".qitem").forEach(el=>
+        el.addEventListener("mousedown", e=>{ e.preventDefault(); pick(+el.dataset.i); }));
+    }
+    list.classList.add("on"); inp.setAttribute("aria-expanded","true");
+  }
+
+  function pick(i){
+    const s=hits[i]; if(!s) return;
+    select(s.code); inp.value=""; close(); inp.blur();
+  }
+
+  inp.addEventListener("input", e=>search(e.target.value));
+  inp.addEventListener("focus", e=>{ if(e.target.value) search(e.target.value); });
+  inp.addEventListener("blur", ()=>setTimeout(close,120));
+  inp.addEventListener("keydown", e=>{
+    if(!list.classList.contains("on")) return;
+    if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+      e.preventDefault();
+      hi=(hi+(e.key==="ArrowDown"?1:-1)+hits.length)%Math.max(hits.length,1);
+      list.querySelectorAll(".qitem").forEach((el,i)=>el.classList.toggle("hi",i===hi));
+    }else if(e.key==="Enter"){ e.preventDefault(); pick(hi<0?0:hi); }
+    else if(e.key==="Escape"){ close(); inp.blur(); }
+  });
+}
 
 /* ============================================================
    7. 描画統括 + イベント
@@ -1091,6 +1185,7 @@ document.querySelectorAll("#tbl th").forEach(th=>th.addEventListener("click",()=
   document.getElementById("m-inst").textContent=META.instDate||"—";
   document.getElementById("m-gen").textContent=(META.generated||"").slice(0,10)||"—";
   bindTips();
+  bindSearch();
   drawRegime();
   render();
 })();
