@@ -239,7 +239,7 @@ dt[data-tip]{border-bottom-style:dashed}
     </div>
     <div class="hd-meta">
       <span class="badge">機関＋個人</span>
-      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.5</span>
+      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.6</span>
       <div class="meta-item">データ日<b class="mono" id="m-calc">—</b></div>
       <div class="meta-item">機関データ<b class="mono" id="m-inst">—</b></div>
       <div class="meta-item">生成日<b class="mono" id="m-gen">—</b></div>
@@ -272,7 +272,9 @@ dt[data-tip]{border-bottom-style:dashed}
         <option value="instRatio">機関残高割合</option>
         <option value="shortPnlInst">機関の評価損益率</option>
         <option value="hedge">ヘッジ度</option>
-        <option value="coverInst5">機関残高5日変化率</option>
+        <option value="coverReal5">機関残高5日変化率（真）</option>
+        <option value="coverInst5">機関残高5日変化率（消失込み）</option>
+        <option value="instOut5">消えた報告者数</option>
         <option value="instN">報告機関数</option>
       </optgroup>
       <optgroup label="個人信用（日証金）">
@@ -343,7 +345,7 @@ dt[data-tip]{border-bottom-style:dashed}
       <th data-k="instN" data-tip="instN">機関数</th>
       <th data-k="hedge" data-asc="1" data-tip="hedge">ヘッジ度</th>
       <th data-k="shortPnlInst" data-asc="1" data-tip="shortPnlInst">機関損益</th>
-      <th data-k="coverInst5" data-asc="1" data-tip="coverInst5">機関5日Δ</th>
+      <th data-k="coverReal5" data-asc="1" data-tip="coverReal5">機関5日Δ</th>
       <th data-k="shortPnl" data-asc="1" data-tip="shortPnl">個人売方</th>
       <th data-k="state">状態</th>
     </tr></thead>
@@ -508,7 +510,7 @@ dt[data-tip]{border-bottom-style:dashed}
   燃料＝DTC 40% + 売り方評価損益 40% + 売り方シェア 20%、着火＝52週高値まで 55% + ATR拡大率 45%。気圧＝燃料×着火。
   重みは <code>WT</code> オブジェクトで調整できる。<br>
   <b>符号規約</b>：<code>shortPnl</code> と <code>cover5</code> は<b>マイナスが燃料</b>。<br>
-  <span style="color:var(--mist)">UI版数 <b>v2.5</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
+  <span style="color:var(--mist)">UI版数 <b>v2.6</b> — 画面右上のバッジと同じ。古ければHTMLが更新されていない</span>
 </div>
 
 </div>
@@ -547,7 +549,13 @@ function score(s) {
   s.ignition = Math.round((iHi + iAtr) * 100);
 
   s.pressure = Math.round(s.fuel * s.ignition / 10);
-  s.running  = has(s.coverInst5) && s.coverInst5 < -5 && has(s.atrExp) && s.atrExp > 1.15;
+  // 進行中は「真の変化率」で判定する。素朴な変化率には
+  // 0.5%割れによる報告消失が混ざり、株価上昇局面で偽陽性が出る
+  const cv = has(s.coverReal5) ? s.coverReal5 : s.coverInst5;
+  s.running  = has(cv) && cv < -5 && has(s.atrExp) && s.atrExp > 1.15;
+  // 報告消失で見せかけの減少が出ている度合い
+  s.coverGap = (has(s.coverInst5) && has(s.coverReal5))
+             ? +(s.coverInst5 - s.coverReal5).toFixed(1) : null;
   s.noInst   = !has(s.instQty);
   return s;
 }
@@ -591,7 +599,9 @@ const TERMS = {
   instN:     ['報告機関数', '0.5%以上を報告している機関の数。多いほど売りの合意が広く、少ないほど1社の判断に依存している。'],
   hedge:     ['ヘッジ度', '報告機関の同時保有銘柄数・残高の変動係数・保有日数・報告頻度から推定した「買い戻さない玉」の割合。残高で加重平均している。低いほど方向性のポジションで、踏み上がりやすい。', '0に近い=方向性 / 1に近い=ヘッジ・裁定'],
   shortPnlInst:['機関の評価損益率', '機関の売建コストの推計から出した含み損益率。マイナスなら売り方が負けていて、損切りに追い込まれやすい。日々の残高増減にその日の終値を掛けて累積した推計値。', '(売建コスト ÷ 現値 - 1) × 100'],
-  coverInst5:['機関残高 5日変化率', '機関の空売り残高が直近5営業日でどれだけ増減したか。マイナスは残高減＝買い戻し。ただし0.5%を割ると報告が消えるため、解消と報告義務消失は区別できない。'],
+  coverReal5:['機関残高 5日変化率（真）', '両日ともに報告が存在する機関だけで計算した残高変化率。0.5%割れによる報告消失を除いてあるので、これがマイナスなら本当に買い戻しが出ている。「進行中」の判定にはこちらを使う。'],
+  instOut5:  ['消えた報告者数', '直近5営業日で報告が消えた機関の数。0.5%を割ったか、完全に解消したかは区別できない。株価が上昇した銘柄で起きやすいので、素朴な変化率が大きくマイナスに見える原因になる。'],
+  coverInst5:['機関残高 5日変化率（消失込み）', '報告の合計をそのまま比べた変化率。0.5%割れで消えた報告も「減少」として数えてしまうため、株価が上がった銘柄では実際より大きくマイナスに出る。真の変化率との差が「見せかけ」の分。'],
   instDays:  ['観測日数', 'コスト推計に使えた日数。長いほど推計が安定する。'],
   instReset: ['リセット回数', '残高が0.5%を割って報告が消えた回数。多いほどコスト推計が実際より新しい値に寄っている。'],
   shortPnl:  ['個人 売り方評価損益率', '日証金の貸株残から推計した個人の売り方の損益率。マイナスは売り方が負けている状態。ただし貸株残は品貸分だけなので母数が小さく、参考程度。', '(売建加重平均単価 ÷ 現値 - 1) × 100'],
@@ -611,7 +621,7 @@ const TERMS = {
   colorBy:   ['点の色', '銘柄別の気圧図で、点の色を業種にするか気圧にするか。気圧の高さは点の位置（右上ほど高い）で既に分かるので、色は業種に使ったほうが情報が増える。業種別タブは常に業種色。'],
   emaOnly:   ['EMA整列のみ', '20>60>120>200 の順に並んでいる銘柄だけに絞る。踏み上げ狙いは「下げてきた銘柄の逆張り」になりやすいので、それを避けるための安全弁。順張り＋需給燃料の形に限定する。', 'EMA20 > EMA60 > EMA120 > EMA200'],
   noSeller:  ['売り方不在', '機関の空売り残高報告がなく、日証金の貸株残もゼロ。売り方がそもそもいないので踏み上げは起きない。買い方だけが残っている場合、その戻り売りが上値を重くする。'],
-  running:   ['進行中', 'すでに買い戻しが始まっている可能性がある状態。機関の残高が5営業日で5%以上減り、かつ値動きが荒くなっている銘柄。ただし機関データは2営業日前なので検知としては遅れる。予測ではなく事後確認なので、新規エントリーの根拠にはしないこと。', '機関残高5日変化 < -5% かつ ATR20÷ATR60 > 1.15'],
+  running:   ['進行中', 'すでに買い戻しが始まっている可能性がある状態。報告消失を除いた真の残高変化が5営業日で-5%を超え、かつ値動きが荒くなっている銘柄。ただし機関データは2営業日前なので検知としては遅れる。予測ではなく事後確認なので、新規エントリーの根拠にはしないこと。', '真の残高5日変化 < -5% かつ ATR20÷ATR60 > 1.15'],
 };
 
 const tipEl = () => document.getElementById('tip');
@@ -654,7 +664,9 @@ const AXES={
   instRatio:{lab:"機関残高割合 %（発行済に対する）",max:13,fmt:v=>v.toFixed(1)},
   shortPnlInst:{lab:"機関の評価損益率 %（右ほど負け）",min:15,max:-25,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
   hedge:{lab:"ヘッジ度（左ほど買い戻す玉）",min:0.4,max:0.9,fmt:v=>v.toFixed(2)},
-  coverInst5:{lab:"機関残高 5日変化率 %（右ほど買い戻し）",min:20,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  coverInst5:{lab:"機関残高 5日変化率 %（消失込み・右ほど買い戻し）",min:20,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  coverReal5:{lab:"機関残高 5日変化率 %（真・右ほど買い戻し）",min:20,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
+  instOut5:{lab:"5日で消えた報告者数",max:5,fmt:v=>v.toFixed(0)},
   instN:{lab:"報告機関数",max:10,fmt:v=>v.toFixed(0)},
   shortPnl:{lab:"個人 売り方評価損益率 %",min:10,max:-20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
   longPnl:{lab:"個人 買い方評価損益率 %",min:-30,max:20,fmt:v=>(v>0?"+":"")+v.toFixed(0)},
@@ -964,7 +976,10 @@ function drawDetail(){
       <dt ${T('hedge')}>ヘッジ度</dt><dd>${f(s.hedge)}</dd>
       <dt ${T('shortPnlInst')}>評価損益率</dt><dd style="color:${s.shortPnlInst<0?"var(--shu)":"var(--ai)"}">${sg(s.shortPnlInst,2,"%")}</dd>
       <dt>売建コスト</dt><dd>${f(s.instCost,1)} 円</dd>
-      <dt ${T('coverInst5')}>残高変化 5日/20日</dt><dd style="color:${s.coverInst5<0?"var(--shu)":"var(--mist)"}">${sg(s.coverInst5,1,"%")} <span style="color:var(--mist2)">/ ${sg(s.coverInst20,1,"%")}</span></dd>
+      <dt ${T('coverReal5')}>残高変化 真 5日/20日</dt><dd style="color:${s.coverReal5<0?"var(--shu)":"var(--mist)"}">${sg(s.coverReal5,1,"%")} <span style="color:var(--mist2)">/ ${sg(s.coverReal20,1,"%")}</span></dd>
+      <dt ${T('coverInst5')}>残高変化 消失込み 5日</dt><dd style="color:var(--mist)">${sg(s.coverInst5,1,"%")}${
+        has(s.coverGap)&&Math.abs(s.coverGap)>2?` <span style="color:var(--kincha)">(見せかけ ${sg(s.coverGap,1,"pt")})</span>`:""}</dd>
+      <dt ${T('instOut5')}>5日の報告者 消失/新規</dt><dd>${s.instOut5??"—"} / ${s.instNew5??"—"}</dd>
     </dl>${relia}
     ${(s.insts||[]).map(i=>`
       <div class="inst-row">
@@ -1026,7 +1041,8 @@ function drawTable(){
       <td>${s.instN||"—"}</td>
       <td>${f(s.hedge)}</td>
       <td style="color:${s.shortPnlInst<0?"var(--shu)":"var(--ai)"}">${sg(s.shortPnlInst,2)}</td>
-      <td style="color:${s.coverInst5<0?"var(--shu)":"var(--mist)"}">${sg(s.coverInst5)}</td>
+      <td style="color:${s.coverReal5<0?"var(--shu)":"var(--mist)"}">${sg(s.coverReal5)}${
+        s.instOut5>0?`<span style="color:var(--kincha)" title="5日で${s.instOut5}社の報告が消失"> ✕${s.instOut5}</span>`:""}</td>
       <td style="color:${s.shortPnl<0?"var(--shu)":"var(--ai)"}">${sg(s.shortPnl,2)}</td>
       <td style="text-align:left">${state}</td></tr>`}).join("");
   document.querySelectorAll("#tbody tr").forEach(tr=>{
