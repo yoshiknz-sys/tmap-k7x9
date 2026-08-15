@@ -75,7 +75,8 @@
   .li.tap{cursor:pointer;}
   .li.tap:active{background:#161f29;}
   .li .arw{color:var(--dim); font-size:16px; padding-left:2px;}
-  .li .cd{flex:none; font-variant-numeric:tabular-nums; font-weight:600;
+  .li .cd a.tv{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor;opacity:.95;}.li .cd a.tv:active{opacity:.6;}
+.li .cd{flex:none; font-variant-numeric:tabular-nums; font-weight:600;
           color:#9fb4ff; font-size:12.5px; min-width:40px;}
   #sortslots{padding:2px 14px 0;}
   .slot{display:flex; align-items:center; gap:7px; padding:3px 0;}
@@ -792,7 +793,7 @@ function renderList(allRows, snap){
     return sep+
     '<div class="li"><span class="no">'+(i+1)+'</span>'+
     '<span class="dot" style="background:'+sectorColor(snap,d.sector)+'"></span>'+
-    '<span class="cd">'+d.code+'</span>'+
+    '<span class="cd"><a href="https://jp.tradingview.com/chart/?symbol=TSE:'+d.code+'" target="_blank" rel="noopener" class="tv">'+d.code+'</a></span>'+
     '<span class="nm">'+(d.star?'<span class="st">★</span> ':'')+d.name+
     ' <span class="sec">'+d.sector+'</span></span>'+
     (mvOK(d) ? '<span class="mv">MACD-V</span>' : '')+
