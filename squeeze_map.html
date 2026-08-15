@@ -226,6 +226,9 @@ dt[data-tip]{border-bottom-style:dashed}
   font-family:"Roboto Mono",monospace;font-size:10px;color:var(--kincha);
   border:1px solid var(--ink500);width:20px;height:20px;display:grid;place-items:center;border-radius:50%}
 .steps b{color:var(--paper)}
+
+.det-code a.tv{color:inherit;text-decoration:none;border-bottom:1px dotted currentColor;}
+.det-code a.tv:active{opacity:.6;}
 </style>
 </head>
 <body>
@@ -1047,7 +1050,7 @@ function drawDetail(){
      </div>`;
 
   box.innerHTML=`
-    <div class="det-code">${s.code}　${f(s.px,1)}円</div>
+    <div class="det-code"><a href="https://jp.tradingview.com/chart/?symbol=TSE:${s.code}" target="_blank" rel="noopener" class="tv">${s.code}</a>　${f(s.px,1)}円</div>
     <h2 class="det-name">${s.name}</h2>
     <span class="det-sector" style="border-color:${sectorColor(s.sector)};color:${sectorColor(s.sector)}">${s.sector}</span>
 
