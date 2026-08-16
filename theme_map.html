@@ -936,10 +936,11 @@ function bizLine(d){
   if(e1 !== null)  p.push('<span style="color:'+K+'">決算翌日 '+e1+'</span>');
   const ed = num(d.edays, 0);
   if(ed !== null)  p.push('<span style="color:'+K+'">決算後'+ed+'日</span>');
-  // 業種表示のときは上方修正の比率も出す（揃って動いているかの目安）
+  // 業種表示のときは上方修正の銘柄数を出す（揃って動いているかの目安）
+  // revup は比率で持っているので、銘柄数に戻して「実数/母数」で出す
   const ru = d.revup;
-  if(ru !== null && ru !== undefined && ru === ru)
-    p.push('<span style="color:'+A+'">上方'+(ru*100).toFixed(0)+'%</span>');
+  if(ru !== null && ru !== undefined && ru === ru && d.n)
+    p.push('<span style="color:'+A+'">上方修正数'+Math.round(ru*d.n)+'/'+d.n+'</span>');
   // アナリストが少ない銘柄は数字が跳ねるので注意を出す
   if(d.nana !== null && d.nana !== undefined && d.nana < 3)
     p.push('<span style="color:'+DIM+'">予想少</span>');
