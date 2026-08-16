@@ -58,6 +58,7 @@
       border-bottom:1px solid #1a222c; font-size:13px; flex-wrap:wrap;}
   .li .vals{width:100%; padding-left:34px; font-size:11.5px; color:var(--dim);
             font-variant-numeric:tabular-nums; letter-spacing:.01em; margin-top:1px;}
+.vals.biz{margin-top:2px;opacity:.95}
   .li .no{min-width:26px; text-align:right; color:var(--dim); font-variant-numeric:tabular-nums;}
   .li .dot{width:11px; height:11px; border-radius:50%; flex:none;}
   .li .nm{flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
@@ -755,6 +756,46 @@ function fmt(v){
   const c = v>=0 ? "pos" : "neg";
   return '<b class="'+c+'">'+(v>0?"+":"")+v.toFixed(1)+'%</b>';
 }
+// 業績・決算の数値。価格の行とは色を分けて別軸だと分かるようにする
+// analy系=橙 / 決算系=紫 （ゾーンバッジの緑赤とは意図的に変えている）
+function bizLine(d){
+  const A = "#f2994a", K = "#a78bfa", DIM = "#5b6675";
+  // toFixed は -0.0001 を "-0.0" にするため、符号を先に付けると "+-0.0" になる。
+  // 丸めた後の文字列で判定する
+  const pct = (v, nd) => {
+    if(v===null||v===undefined||v!==v) return null;
+    let t = (v*100).toFixed(nd===undefined?1:nd);
+    if(parseFloat(t) === 0) t = Math.abs(parseFloat(t)).toFixed(nd===undefined?1:nd);
+    return (t.charAt(0)==='-' ? '' : '+') + t + '%';
+  };
+  const num = (v, nd) => (v===null||v===undefined||v!==v) ? null
+              : v.toFixed(nd===undefined?2:nd);
+  let p = [];
+  const r7 = pct(d.revm7), r30 = pct(d.revm30);
+  if(r7 !== null)  p.push('<span style="color:'+A+'">改定7d '+r7+'</span>');
+  if(r30 !== null) p.push('<span style="color:'+DIM+'">30d '+r30+'</span>');
+  const rd = num(d.revdiff);
+  if(rd !== null)  p.push('<span style="color:'+DIM+'">人数差 '+rd+'</span>');
+  const pg = num(d.peg);
+  if(pg !== null)  p.push('<span style="color:'+A+'">PEG '+pg+'</span>');
+  const pe = num(d.per, 1);
+  if(pe !== null)  p.push('<span style="color:'+DIM+'">PER '+pe+'</span>');
+  const fl = num(d.flat);
+  if(fl !== null)  p.push('<span style="color:'+DIM+'">動き '+fl+'ATR</span>');
+  const e1 = pct(d.e1d);
+  if(e1 !== null)  p.push('<span style="color:'+K+'">決算翌日 '+e1+'</span>');
+  const ed = num(d.edays, 0);
+  if(ed !== null)  p.push('<span style="color:'+K+'">決算後'+ed+'日</span>');
+  // 業種表示のときは上方修正の比率も出す（揃って動いているかの目安）
+  const ru = d.revup;
+  if(ru !== null && ru !== undefined && ru === ru)
+    p.push('<span style="color:'+A+'">上方'+(ru*100).toFixed(0)+'%</span>');
+  // アナリストが少ない銘柄は数字が跳ねるので注意を出す
+  if(d.nana !== null && d.nana !== undefined && d.nana < 3)
+    p.push('<span style="color:'+DIM+'">予想少</span>');
+  if(!p.length) return "";
+  return '<div class="vals biz">' + p.join('　') + '</div>';
+}
 function valsLine(d){
   var mv = "";
   if(has(mvVal(d))){
@@ -772,7 +813,7 @@ function valsLine(d){
   return '<div class="vals">3M '+fmt(d.r3m)+'　20D '+fmt(d.r20)+
          '　15D '+fmt(d.r15)+'　10D '+fmt(d.r10)+'　5D '+fmt(d.r5)+
          '　1D '+fmt(d.r1)+'　<b>当日 '+fmt(d.rt)+'</b>'+
-         '　20SMA乖離 '+fmt(d.d20)+mv+up+'</div>';
+         '　20SMA乖離 '+fmt(d.d20)+mv+up+'</div>' + bizLine(d);
 }
 function renderSectorList(S, snap){
   $("list").innerHTML = S.map((d,i)=>
