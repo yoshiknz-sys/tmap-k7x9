@@ -700,6 +700,145 @@ const SORT_DEFS = [["mom","勢い"],["zone","ゾーン"],["star","★uptr押"],
 // そうしないと「値が無い＝0」として上位に紛れ込む
 const NULLABLE = new Set(["revm7","revm30","revdiff","peg","per",
                           "flat","e1d","edays"]);
+
+/* ============ 並び替えの説明 ============
+   n=表示名 / s=由来(price|analy|kessan) / d=1行の説明 / p=落とし穴
+   落とし穴のある項目にだけ「詳しく」を出す。
+   「詳しく」が出ている＝注意点がある、という合図にもなる          */
+const SORT_HELP = {
+  mom:    {n:"勢い", s:"price",
+    d:"短期と長期の値動きを合わせた総合の強さ。既定の並び順で、迷ったらこれ。"},
+  zone:   {n:"ゾーン", s:"price",
+    d:"リーダー／押し目／中立など9分類を、強い順に並べる。分類は選んでいる縦横の軸で決まる。"},
+  star:   {n:"★uptr押", s:"price",
+    d:"移動平均が上から順に並び（EMA60>120>200）、かつ株価がEMA20の±3%以内にある銘柄。上昇トレンドの押し目。",
+    p:"押しの深さを固定の%で測るので、値動きの荒い銘柄ほど当てはまりやすい。約173銘柄が該当。"},
+  up:     {n:"uptr押atr", s:"price",
+    d:"上と同じ上昇トレンドの押し目だが、押しの深さをその銘柄の普段の値幅（ATR）で測る。値がさ株も低位株も同じ基準で比べられる。",
+    p:"上昇に転じてから5〜80日以内という条件も入るので、★より対象が絞られる（約20銘柄）。"},
+  mv:     {n:"Hist", s:"price",
+    d:"MACD-V から Signal を引いた差。値動きの勢いがさらに加速しているかを示す。プラスが大きいほど加速中。"},
+  mvk:    {n:"Hist連続", s:"price",
+    d:"Histがプラス（勢いが加速している状態）が何日続いているか。1日だけの反発を除き、続いているものを拾うための本数。"},
+  d20:    {n:"20SMA乖離", s:"price",
+    d:"株価が20日平均から何%離れているか。プラスが大きいと短期的に買われすぎ、マイナスが大きいと売られすぎ。"},
+  flat:   {n:"動いてない度", s:"price",
+    d:"この1週間の値動きが、その銘柄の普段の値幅（ATR）の何倍だったか。小さいほど動いていない。",
+    p:"「analy改定7d」がプラスなのにこれが小さい銘柄は、予想が上がったのに株価がまだ反応していない可能性がある。"},
+  r3m:    {n:"3M", s:"price", d:"3ヶ月前と比べた株価の騰落率。中期のトレンドの向き。"},
+  r20:    {n:"20D", s:"price", d:"20営業日（約1ヶ月）前と比べた騰落率。"},
+  r15:    {n:"15D", s:"price", d:"15営業日前と比べた騰落率。"},
+  r10:    {n:"10D", s:"price", d:"10営業日（約2週間）前と比べた騰落率。"},
+  r5:     {n:"5D", s:"price", d:"5営業日（約1週間）前と比べた騰落率。短期の勢い。"},
+  r1:     {n:"1D", s:"price", d:"前日1日分の騰落率。確定値で、ザラ場中も動かない。"},
+  rt:     {n:"当日", s:"price", d:"今日の騰落率。",
+    p:"ザラ場中は未確定で、大引けまで動き続ける。"},
+  revm7:  {n:"analy改定7d", s:"analy",
+    d:"アナリストの利益予想が1週間前と比べて何%動いたか。鮮度が高く、上がっていれば業績の見方が今まさに良くなっている。"},
+  revm30: {n:"analy改定30d", s:"analy",
+    d:"同じものを1ヶ月前と比べたもの。落ち着いた見方だが、その分すでに株価に織り込まれている可能性がある。",
+    p:"7dが30dより大きければ、改定のペースが上がっているということ。"},
+  revdiff:{n:"analy改定人数差", s:"analy",
+    d:"直近1ヶ月で予想を上げた人数と下げた人数の差を、全体で割ったもの。+1なら全員が上げ、−1なら全員が下げ。",
+    p:"同じ+5%の改定でも、10人中9人が上げたのか1人が大きく動かしたのかで信頼度が違う。"},
+  peg:    {n:"PEG", s:"analy",
+    d:"割高・割安の目安。株価の割高さを、利益の伸びで割ったもの。1.0を下回れば割安、1.5を超えると割高とされる。",
+    p:"成長率が低い銘柄では計算できず「—」になる（約3割）。またPEGが低いのは、これから予想が下方修正されるからかもしれない。まず改定がプラスの銘柄に絞ってから、その中で低いものを選ぶこと。"},
+  per:    {n:"予想PER", s:"analy",
+    d:"株価が1株利益の何倍か。低いほど割安。",
+    p:"成長が止まっている銘柄も低くなるので、単独では判断できない。"},
+  e1d:    {n:"決算翌日騰落", s:"kessan",
+    d:"直近の決算発表の翌営業日に株価が何%動いたか。決算に対する市場の最初の判定。",
+    p:"ストップ高・安に張り付いた銘柄は数字が頭打ちになり、本当の反応より小さく出る。"},
+  edays:  {n:"決算後日数", s:"kessan",
+    d:"直近の決算発表から何営業日たったか。小さいほど新しい。決算シーズンに発表したての銘柄から順に見るときに使う。",
+    p:"決算が無い、または25営業日より前の銘柄は「—」になる。"}
+};
+const SORT_SRC_LABEL = {price:"株価から作る指標", analy:"アナリスト予想から作る指標",
+                        kessan:"決算から作る指標"};
+const SORT_SRC_COLOR = {price:"#5aa9e6", analy:"#f2994a", kessan:"#a78bfa"};
+
+/* 説明の置き場所。
+   #sortnote は既に「現在: ①勢い↓ …」の要約で使われているので触らない。
+   その直後に専用の要素を作る */
+function sortNoteHost(){
+  let h = document.getElementById("sorthelp");
+  if(h) return h;
+  h = document.createElement("div");
+  h.id = "sorthelp";
+  h.style.cssText = "font-size:11px; line-height:1.7; color:var(--dim);"
+                  + "margin:3px 14px 6px; padding:0 2px;";
+  const sn = document.getElementById("sortnote");
+  if(sn && sn.parentElement && sn.parentElement.parentElement){
+    // sortnote は btnrow の中の span なので、その行の後ろに置く
+    const row = sn.parentElement;
+    row.parentElement.insertBefore(h, row.nextSibling);
+  }else{
+    const slots = document.getElementById("sortslots");
+    if(slots && slots.parentElement)
+      slots.parentElement.insertBefore(h, slots.nextSibling);
+    else document.body.appendChild(h);
+  }
+  return h;
+}
+
+/* 第1キーの説明を1行で出す。落とし穴があれば「詳しく」を添える */
+function showSortHelp(){
+  const h = sortNoteHost();
+  if(!h) return;
+  const k = (typeof sortTop === "function" && sortTop()) ? sortTop().k : null;
+  const v = k ? SORT_HELP[k] : null;
+  if(!v){ h.innerHTML = ""; return; }
+  const col = SORT_SRC_COLOR[v.s] || "#78889a";
+  let t = v.d.length > 52 ? v.d.slice(0, 52) + "…" : v.d;
+  h.innerHTML = '<span style="color:'+col+'">■</span> ' + t
+    + (v.p ? ' <a href="#" id="sorthelpmore" style="color:#5aa9e6;'
+           + 'text-decoration:none;white-space:nowrap">詳しく</a>' : '');
+  const a = document.getElementById("sorthelpmore");
+  if(a) a.onclick = function(e){ e.preventDefault(); openSortPop(k); };
+}
+
+function openSortPop(k){
+  const v = SORT_HELP[k]; if(!v) return;
+  let back = document.getElementById("sortpopback");
+  if(!back){
+    back = document.createElement("div");
+    back.id = "sortpopback";
+    back.style.cssText = "position:fixed;inset:0;background:rgba(4,8,12,.72);"
+      + "display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999";
+    back.innerHTML = '<div id="sortpop" style="width:100%;max-width:440px;'
+      + 'max-height:82vh;overflow-y:auto;background:#161e27;border:1px solid #26323f;'
+      + 'border-radius:14px;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.55);'
+      + 'border-top:3px solid #26323f">'
+      + '<h3 id="sortpopttl" style="margin:0;font-size:18px;color:#eef4f9"></h3>'
+      + '<p id="sortpopsrc" style="margin:6px 0 0;font-size:11.5px;color:#78889a"></p>'
+      + '<p id="sortpopd" style="margin:13px 0 0;font-size:14px;color:#c7d3de;line-height:1.75"></p>'
+      + '<div id="sortpopp"></div>'
+      + '<button id="sortpopclose" style="margin:18px 0 0;width:100%;padding:11px;'
+      + 'border-radius:9px;border:1px solid #26323f;background:#1c2632;color:#eef4f9;'
+      + 'font-size:15px;font-family:inherit;cursor:pointer">閉じる</button></div>';
+    document.body.appendChild(back);
+    back.addEventListener("click", function(e){
+      if(e.target === back) back.style.display = "none"; });
+    document.getElementById("sortpopclose").onclick = function(){
+      back.style.display = "none"; };
+    document.addEventListener("keydown", function(e){
+      if(e.key === "Escape") back.style.display = "none"; });
+  }
+  document.getElementById("sortpop").style.borderTopColor = SORT_SRC_COLOR[v.s];
+  document.getElementById("sortpopttl").textContent = v.n;
+  document.getElementById("sortpopsrc").textContent = SORT_SRC_LABEL[v.s] || "";
+  document.getElementById("sortpopd").textContent = v.d;
+  document.getElementById("sortpopp").innerHTML = v.p
+    ? '<p style="margin:12px 0 0;padding:10px 12px;border-radius:7px;'
+      + 'background:rgba(255,194,102,.07);border-left:2px solid #ffc266;'
+      + 'font-size:13.5px;color:#e2d6bd;line-height:1.7">'
+      + '<b style="color:#ffc266">注意</b> ' + v.p + '</p>'
+    : '';
+  back.style.display = "flex";
+  document.getElementById("sortpopclose").focus();
+}
+
 // 並び替えスロット（第1〜第5）を描画。埋まっている段＋空き1段を表示
 function renderSortSlots(){
   const host = $("sortslots");
@@ -742,10 +881,10 @@ function renderSortSlots(){
       render();
     };
   });
+  showSortHelp();
 }
-const SORT_NAME = {mom:"勢い",zone:"ゾーン",star:"★",mv:"Hist",mvk:"連続",up:"uptr押",
-                   d20:"20SMA乖離",r3m:"3M",r20:"20D",r15:"15D",r10:"10D",
-                   r5:"5D",r1:"1D",rt:"当日"};
+// 表示名は SORT_HELP から引く。二重管理をやめ、食い違いを防ぐ
+const SORT_NAME = Object.fromEntries(Object.entries(SORT_HELP).map(([k,v]) => [k, v.n]));
 function sortSummary(){
   return sortList.map((s,i)=>PRI_MARK[i]+SORT_NAME[s.k]+(s.dir<0?"↓":"↑")).join(" ");
 }
