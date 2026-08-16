@@ -294,6 +294,13 @@ function scoreOf(d, key){
     return (upOK(d) ? 1e6 : 0) + v;
   }
   if(key === "mom")      return momScore(d);
+  if(NULLABLE.has(key)){
+    const v = d[key];
+    // null / undefined / NaN は最後尾。昇順で選んでも先頭に来ないよう
+    // sortRows 側で dir を掛ける前に十分小さい値にしておく
+    if(v === null || v === undefined || v !== v) return -1e9;
+    return v;
+  }
   return d[key];
 }
 function sortRows(arr){
@@ -301,7 +308,11 @@ function sortRows(arr){
   return arr.slice().sort((a,b)=>{
     for(let i=0; i<sortList.length; i++){
       const s = sortList[i];
-      const d = (scoreOf(a, s.k) - scoreOf(b, s.k)) * s.dir;
+      const va = scoreOf(a, s.k), vb = scoreOf(b, s.k);
+      // データ無し(-1e9)は dir によらず必ず後ろ
+      const na = (va <= -1e9), nb = (vb <= -1e9);
+      if(na !== nb) return na ? 1 : -1;
+      const d = (va - vb) * s.dir;
       if(d !== 0) return d;
     }
     return momScore(b) - momScore(a);   // 全キー同点なら勢いの大きい順
@@ -662,11 +673,23 @@ Object.keys(FILTERS).forEach(k=>{
   b.onclick = ()=>{ stopPlay(); filter=k; drill=null; render(); };
   $("filterrow").appendChild(b);
 });
-const SORT_DEFS = [["mom","勢い"],["zone","ゾーン"],["star","★"],["mv","Hist"],["mvk","連続"],
-                   ["up","uptr押"],
+const SORT_DEFS = [["mom","勢い"],["zone","ゾーン"],["star","★uptr押"],
+                   ["mv","Hist"],["mvk","Hist連続"],
+                   ["up","uptr押atr"],
                    ["d20","20SMA乖離"],
                    ["r3m","3M"],["r20","20D"],["r15","15D"],["r10","10D"],
-                   ["r5","5D"],["r1","1D"],["rt","当日"]];
+                   ["r5","5D"],["r1","1D"],["rt","当日"],
+                   // ここから業績・決算。名前の頭で由来が分かるようにしている
+                   ["revm7","analy改定7d"],["revm30","analy改定30d"],
+                   ["revdiff","analy改定人数差"],
+                   ["peg","PEG"],["per","予想PER"],
+                   ["flat","動いてない度"],
+                   ["e1d","決算翌日騰落"],["edays","決算後日数"]];
+
+// データが無い項目(null)。並び替えでは常に最後尾へ送る。
+// そうしないと「値が無い＝0」として上位に紛れ込む
+const NULLABLE = new Set(["revm7","revm30","revdiff","peg","per",
+                          "flat","e1d","edays"]);
 // 並び替えスロット（第1〜第5）を描画。埋まっている段＋空き1段を表示
 function renderSortSlots(){
   const host = $("sortslots");
