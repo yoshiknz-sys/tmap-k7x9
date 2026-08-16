@@ -36,6 +36,8 @@
   .f[data-k="macdv"].on{background:#2962FF; border-color:#2962FF; color:#eaf0ff;}
   .f[data-k="uptr"].on{background:#f2994a; border-color:#f2994a; color:#2b1502;}
   #mvrow, #mvnrow{display:none;}
+  #mvnnote{display:none; margin:2px 14px 4px; font-size:11px;
+           line-height:1.65; color:var(--dim); max-width:62ch;}
   #mvrow .pill.on, #mvnrow .pill.on{background:#2962FF; border-color:#2962FF; color:#eaf0ff;}
   #stale{display:none; margin:6px 14px 0; padding:7px 10px; border-radius:8px;
          background:rgba(242,201,76,0.10); border:1px solid rgba(242,201,76,0.40);
@@ -106,7 +108,8 @@
 <div class="btnrow" id="yrow"><span class="axlab">縦軸</span></div>
 <div class="btnrow" id="filterrow"></div>
 <div class="btnrow" id="mvrow"><span class="axlab">判定バー</span></div>
-<div class="btnrow" id="mvnrow"><span class="axlab">連続本数</span></div>
+<div class="btnrow" id="mvnrow"><span class="axlab">Hist連続</span></div>
+<div id="mvnnote">勢いが強まっている状態が何日続いた銘柄に絞るか。数字を大きくするほど、一時的な反発が除かれる。選択で「MACD-V」を選んでいるときだけ効く。</div>
 <div id="stale"></div>
 <div class="btnrow"><span style="font-size:11px;color:var(--dim);">並び替え（第1が最優先）</span></div>
 <div id="sortslots"></div>
@@ -452,6 +455,9 @@ function render(){
                     sortHas("mv") || sortHas("mvk") || sortHas("up"));
   $("mvrow").style.display  = mvActive ? "flex" : "none";
   $("mvnrow").style.display = mvActive ? "flex" : "none";
+  // 説明はボタン行と一緒に出し入れする。
+  // 効かない状態で説明だけ残ると誤解のもとになるため
+  $("mvnnote").style.display = mvActive ? "block" : "none";
 
   if(filter === "uptr" || (sortTop().k === "up" && filter !== "macdv")){
     const n = snap.stocks.filter(upOK).length;
