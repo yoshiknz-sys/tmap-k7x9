@@ -183,7 +183,9 @@ let playing = null;
 let showAllLabels = false;
 let xKey = "r3m";
 let yKey = "r5";
-let mvLag = 1;              // 1=前日確定(既定) / 0=当日終値
+let mvLag = 0;              // 0=当日終値(既定) / 1=前日確定
+                            // 引け後に見る運用なので当日終値を既定にする。
+                            // ザラ場中は未確定で動く点に注意
 let mvN   = 3;   // ①②③に必要な連続本数
 let QUAD_KEYS = [];         // layout.annotations の index → フィルタキー
 const LIST_PAGE = 100;      // リストの1回あたり表示件数
