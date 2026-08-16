@@ -87,14 +87,59 @@
   #sortslots{padding:2px 14px 0;}
   .slot{display:flex; align-items:center; gap:7px; padding:3px 0;}
   .slot .pri{font-size:11px; color:var(--dim); min-width:26px;}
-  .slot select{flex:1; max-width:190px; background:var(--panel); color:var(--tx);
-      border:1px solid var(--line); border-radius:8px; padding:7px 8px;
-      font-size:13px; font-family:inherit; -webkit-appearance:none; appearance:none;
-      background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),
-                       linear-gradient(135deg,var(--dim) 50%,transparent 50%);
-      background-position:calc(100% - 15px) 50%, calc(100% - 10px) 50%;
-      background-size:5px 5px, 5px 5px; background-repeat:no-repeat;}
-  .slot select.set{border-color:var(--acc); color:#eafff2;}
+  .slot .pick{flex:1; max-width:190px; display:flex; align-items:center; gap:7px;
+      background:var(--panel); color:var(--tx); border:1px solid var(--line);
+      border-radius:8px; padding:7px 9px; font-size:13px; font-family:inherit;
+      text-align:left; cursor:pointer;}
+  .slot .pick .sq{width:7px; height:7px; border-radius:2px; flex:none;}
+  .slot .pick .nm{flex:1; min-width:0; overflow:hidden;
+      text-overflow:ellipsis; white-space:nowrap;}
+  .slot .pick .ph{color:var(--dim);}
+  .slot .pick .arw{flex:none; color:var(--dim); font-size:10px;}
+  .slot .pick.set{border-color:var(--acc); color:#eafff2;}
+  /* ---- 並び替えピッカー(U3-h) ---- */
+  #pkback{position:fixed; inset:0; background:rgba(4,8,12,.76); display:none;
+      align-items:flex-end; justify-content:center; z-index:9998;}
+  #pkback.on{display:flex;}
+  #pksheet{width:100%; max-width:560px; max-height:82vh; display:flex;
+      flex-direction:column; background:var(--panel); border:1px solid var(--line);
+      border-radius:16px 16px 0 0; box-shadow:0 -18px 50px rgba(0,0,0,.6);}
+  @media(min-width:600px){#pkback{align-items:center;} #pksheet{border-radius:16px;}}
+  #pkhd{padding:14px 16px 10px; border-bottom:1px solid var(--line); flex:none;}
+  #pkhd h3{margin:0 0 3px; font-size:15px; color:#eef4f9; font-weight:700;}
+  #pkhd p{margin:0; font-size:11.5px; color:var(--dim);}
+  #pkbd{overflow-y:auto; padding:4px 0; -webkit-overflow-scrolling:touch;}
+  .pkgrp{padding:12px 16px 4px; font-size:10.5px; letter-spacing:.14em; color:var(--dim);}
+  .pkrow{display:flex; flex-wrap:wrap; align-items:center;
+      border-left:2px solid transparent; border-bottom:1px solid #1b232c;}
+  .pkrow[data-s="price"]{border-left-color:#5aa9e6;}
+  .pkrow[data-s="analy"]{border-left-color:#f2994a;}
+  .pkrow[data-s="kessan"]{border-left-color:#a78bfa;}
+  .pkrow.sel{background:#212d3a;}
+  .pkopt{flex:1; min-width:0; display:flex; align-items:baseline; gap:9px;
+      padding:11px 6px 11px 14px; border:none; background:none; color:var(--tx);
+      font-family:inherit; font-size:14px; text-align:left; cursor:pointer;}
+  .pkopt .n{flex:none; font-weight:700; color:#eef4f9; font-size:14px;}
+  .pkopt .n .chk{color:var(--acc); margin-left:4px;}
+  /* スマホ幅では1行に収まらないので2行まで折り返す。
+     nowrap+…にすると説明の後半が見えず、選ぶ前に意味が分かる目的を果たせない */
+  .pkopt .d{flex:1; min-width:0; font-size:11.5px; color:var(--dim); line-height:1.5;
+      overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical;
+      -webkit-line-clamp:2; line-clamp:2;}
+  .pkmore{flex:none; margin-right:12px; padding:5px 9px; border-radius:6px;
+      border:1px solid var(--line); background:none; color:#5aa9e6;
+      font-size:11px; font-family:inherit; white-space:nowrap; cursor:pointer;}
+  .pkmore.warn{color:#ffc266; border-color:#4a3f28;}
+  .pkdet{display:none; flex-basis:100%; padding:0 14px 12px;}
+  .pkdet.on{display:block;}
+  .pkdet .dd{margin:0; font-size:12.5px; color:var(--tx); line-height:1.7;}
+  .pkdet .pp{margin:8px 0 0; padding:9px 11px; border-radius:7px;
+      background:rgba(255,194,102,.07); border-left:2px solid #ffc266;
+      font-size:12px; color:#e2d6bd; line-height:1.65;}
+  .pkdet .pp b{color:#ffc266;}
+  #pkft{padding:9px 16px 13px; border-top:1px solid var(--line); flex:none;}
+  #pkft button{width:100%; padding:11px; border-radius:9px; border:1px solid var(--line);
+      background:#1c2632; color:#eef4f9; font-size:15px; font-family:inherit; cursor:pointer;}
   .slot .sdir{border:1px solid var(--line); background:var(--panel); color:var(--tx);
       border-radius:8px; padding:7px 10px; font-size:12px; cursor:pointer;
       white-space:nowrap; font-family:inherit;}
@@ -134,7 +179,7 @@
   時点ボタンをずらすと両方が一緒にずれます。<br>
   <b>全銘柄</b>: 対象全銘柄を並び替え順に一覧表示します（業種でまとめずフラットに表示）。
   リストは100件ずつ追加読み込み。点が多いためチャートのコードラベルは省略されます（「ラベル」ボタンで銘柄名表示）。<br>
-  <b>並び替え</b>: 第1〜第5のプルダウンで優先順に指定します（第1が最優先）。各段の［↓大→小 / ↑小→大］で向きを切替。
+  <b>並び替え</b>: 第1〜第5の欄をタップすると項目一覧が開きます（第1が最優先）。一覧は1項目1行で、［詳しく］を押すとその項目だけ説明が開きます（⚠付きは注意点あり）。各段の［↓大→小 / ↑小→大］で向きを切替。
   「— 指定なし —」でその段を解除すると下の段が繰り上がります。既定は第1＝当日の降順。<br>
   <b>20SMA乖離</b>＝(終値÷20日単純移動平均−1)×100。※★整列の判定はEMA20なので数値は一致しません。<br>
   <b>Hist</b>＝「MACD-V − Sig = 差分」の右辺。Pine Scriptの hist = macdV - Signal と同じ値で、
@@ -685,18 +730,8 @@ Object.keys(FILTERS).forEach(k=>{
   b.onclick = ()=>{ stopPlay(); filter=k; drill=null; render(); };
   $("filterrow").appendChild(b);
 });
-const SORT_DEFS = [["mom","勢い"],["zone","ゾーン"],["star","★uptr押"],
-                   ["mv","Hist"],["mvk","Hist連続"],
-                   ["up","uptr押atr"],
-                   ["d20","20SMA乖離"],
-                   ["r3m","3M"],["r20","20D"],["r15","15D"],["r10","10D"],
-                   ["r5","5D"],["r1","1D"],["rt","当日"],
-                   // ここから業績・決算。名前の頭で由来が分かるようにしている
-                   ["revm7","analy改定7d"],["revm30","analy改定30d"],
-                   ["revdiff","analy改定人数差"],
-                   ["peg","PEG"],["per","予想PER"],
-                   ["flat","動いてない度"],
-                   ["e1d","決算翌日騰落"],["edays","決算後日数"]];
+// SORT_DEFS は廃止(U3-h)。表示名も並び順も SORT_HELP 一本に統一した。
+// 二重管理をやめたので、項目を足すときは SORT_HELP に1行足すだけでよい。
 
 // データが無い項目(null)。並び替えでは常に最後尾へ送る。
 // そうしないと「値が無い＝0」として上位に紛れ込む
@@ -709,52 +744,81 @@ const NULLABLE = new Set(["revm7","revm30","revdiff","peg","per",
    「詳しく」が出ている＝注意点がある、という合図にもなる          */
 const SORT_HELP = {
   mom:    {n:"勢い", s:"price",
+    s1:"短期と長期を合わせた総合の強さ。迷ったらこれ",
     d:"短期と長期の値動きを合わせた総合の強さ。既定の並び順で、迷ったらこれ。"},
   zone:   {n:"ゾーン", s:"price",
+    s1:"リーダー／押し目／中立など9分類を強い順に",
     d:"リーダー／押し目／中立など9分類を、強い順に並べる。分類は選んでいる縦横の軸で決まる。"},
   star:   {n:"★uptr押", s:"price",
+    s1:"移動平均が整列＋EMA20の±3%以内の押し目",
     d:"移動平均が上から順に並び（EMA60>120>200）、かつ株価がEMA20の±3%以内にある銘柄。上昇トレンドの押し目。",
-    p:"押しの深さを固定の%で測るので、値動きの荒い銘柄ほど当てはまりやすい。約173銘柄が該当。"},
+    p:"押しの深さを固定の%で測るので、値動きの荒い銘柄ほど当てはまりやすい。"},
   up:     {n:"uptr押atr", s:"price",
-    d:"上と同じ上昇トレンドの押し目だが、押しの深さをその銘柄の普段の値幅（ATR）で測る。値がさ株も低位株も同じ基準で比べられる。",
-    p:"上昇に転じてから5〜80日以内という条件も入るので、★より対象が絞られる（約20銘柄）。"},
+    s1:"★uptr押と同じ押し目を、その銘柄の値幅(ATR)で測る",
+    d:"★uptr押と同じ上昇トレンドの押し目だが、押しの深さをその銘柄の普段の値幅（ATR）で測る。値がさ株も低位株も同じ基準で比べられる。",
+    p:"ゴールデンクロスから5〜80本以内という条件も入る。5本未満は転換したばかりで押しと呼べず、80本超は上昇が始まって4ヶ月以上たち初動を過ぎている、という考え方。★にはこの時間条件が無い。"},
   mv:     {n:"Hist", s:"price",
+    s1:"勢いがさらに加速しているか。＋で加速中",
     d:"MACD-V から Signal を引いた差。値動きの勢いがさらに加速しているかを示す。プラスが大きいほど加速中。"},
   mvk:    {n:"Hist連続", s:"price",
+    s1:"勢いの加速が何日続いているか",
     d:"Histがプラス（勢いが加速している状態）が何日続いているか。1日だけの反発を除き、続いているものを拾うための本数。"},
   d20:    {n:"20SMA乖離", s:"price",
+    s1:"20日平均から何%離れているか",
     d:"株価が20日平均から何%離れているか。プラスが大きいと短期的に買われすぎ、マイナスが大きいと売られすぎ。"},
   flat:   {n:"動いてない度", s:"price",
-    d:"この1週間の値動きが、その銘柄の普段の値幅（ATR）の何倍だったか。小さいほど動いていない。",
-    p:"「analy改定7d」がプラスなのにこれが小さい銘柄は、予想が上がったのに株価がまだ反応していない可能性がある。"},
-  r3m:    {n:"3M", s:"price", d:"3ヶ月前と比べた株価の騰落率。中期のトレンドの向き。"},
-  r20:    {n:"20D", s:"price", d:"20営業日（約1ヶ月）前と比べた騰落率。"},
-  r15:    {n:"15D", s:"price", d:"15営業日前と比べた騰落率。"},
-  r10:    {n:"10D", s:"price", d:"10営業日（約2週間）前と比べた騰落率。"},
-  r5:     {n:"5D", s:"price", d:"5営業日（約1週間）前と比べた騰落率。短期の勢い。"},
-  r1:     {n:"1D", s:"price", d:"前日1日分の騰落率。確定値で、ザラ場中も動かない。"},
-  rt:     {n:"当日", s:"price", d:"今日の騰落率。",
+    s1:"5営業日の終値の変化幅が、普段の値幅(ATR)の何倍か",
+    d:"5営業日前と今日の終値の差（絶対値）を、その銘柄のATR14で割った値。小さいほど動いていない。",
+    p:"終値どうしの差で測るので、途中の高値安値は見ていない。5営業日で0.75倍なら、1週間かけて1日分の値幅にも満たない動き＝横ばい。「analy改定7d」がプラスなのにこれが小さい銘柄は、予想が上がったのに株価がまだ反応していない可能性がある。"},
+  r3m:    {n:"3M", s:"price",
+    s1:"3ヶ月前と比べた騰落率",
+    d:"3ヶ月前と比べた株価の騰落率。中期のトレンドの向き。"},
+  r20:    {n:"20D", s:"price",
+    s1:"20営業日（約1ヶ月）前と比べた騰落率",
+    d:"20営業日（約1ヶ月）前と比べた騰落率。"},
+  r15:    {n:"15D", s:"price",
+    s1:"15営業日前と比べた騰落率",
+    d:"15営業日前と比べた騰落率。"},
+  r10:    {n:"10D", s:"price",
+    s1:"10営業日（約2週間）前と比べた騰落率",
+    d:"10営業日（約2週間）前と比べた騰落率。"},
+  r5:     {n:"5D", s:"price",
+    s1:"5営業日（約1週間）前と比べた騰落率",
+    d:"5営業日（約1週間）前と比べた騰落率。短期の勢い。"},
+  r1:     {n:"1D", s:"price",
+    s1:"前日1日分の騰落率。確定値",
+    d:"前日1日分の騰落率。確定値で、ザラ場中も動かない。"},
+  rt:     {n:"当日", s:"price",
+    s1:"今日の騰落率",
+    d:"今日の騰落率。",
     p:"ザラ場中は未確定で、大引けまで動き続ける。"},
   revm7:  {n:"analy改定7d", s:"analy",
+    s1:"利益予想が1週間で何%動いたか。鮮度が高い",
     d:"アナリストの利益予想が1週間前と比べて何%動いたか。鮮度が高く、上がっていれば業績の見方が今まさに良くなっている。"},
   revm30: {n:"analy改定30d", s:"analy",
+    s1:"同じものを1ヶ月前と比べたもの",
     d:"同じものを1ヶ月前と比べたもの。落ち着いた見方だが、その分すでに株価に織り込まれている可能性がある。",
     p:"7dが30dより大きければ、改定のペースが上がっているということ。"},
-  revdiff:{n:"analy改定人数差", s:"analy",
-    d:"直近1ヶ月で予想を上げた人数と下げた人数の差を、全体で割ったもの。+1なら全員が上げ、−1なら全員が下げ。",
-    p:"同じ+5%の改定でも、10人中9人が上げたのか1人が大きく動かしたのかで信頼度が違う。"},
+  revdiff: {n:"analy改定人数割合", s:"analy",
+    s1:"予想を上げた人が全体のどれだけを占めるか",
+    d:"直近1ヶ月で予想を上げた人が全体のどれだけを占めるか。+1なら全員が上げ、−1なら全員が下げ。",
+    p:"（上げた人数 − 下げた人数）÷（上げた人数 + 下げた人数）で計算。同じ+5%の改定でも、10人中9人が上げたのか1人が大きく動かしたのかで信頼度が違う。"},
   peg:    {n:"PEG", s:"analy",
+    s1:"割高割安の目安。1.0以下で割安、1.5超で割高",
     d:"割高・割安の目安。株価の割高さを、利益の伸びで割ったもの。1.0を下回れば割安、1.5を超えると割高とされる。",
     p:"成長率が低い銘柄では計算できず「—」になる（約3割）。またPEGが低いのは、これから予想が下方修正されるからかもしれない。まず改定がプラスの銘柄に絞ってから、その中で低いものを選ぶこと。"},
   per:    {n:"予想PER", s:"analy",
+    s1:"株価が1株利益の何倍か。低いほど割安",
     d:"株価が1株利益の何倍か。低いほど割安。",
     p:"成長が止まっている銘柄も低くなるので、単独では判断できない。"},
   e1d:    {n:"決算翌日騰落", s:"kessan",
+    s1:"決算の翌営業日に株価が何%動いたか",
     d:"直近の決算発表の翌営業日に株価が何%動いたか。決算に対する市場の最初の判定。",
     p:"ストップ高・安に張り付いた銘柄は数字が頭打ちになり、本当の反応より小さく出る。"},
   edays:  {n:"決算後日数", s:"kessan",
+    s1:"直近の決算から何営業日たったか",
     d:"直近の決算発表から何営業日たったか。小さいほど新しい。決算シーズンに発表したての銘柄から順に見るときに使う。",
-    p:"決算が無い、または25営業日より前の銘柄は「—」になる。"}
+    p:"決算後25営業日を超えたら「—」表示になる。"}
 };
 const SORT_SRC_LABEL = {price:"株価から作る指標", analy:"アナリスト予想から作る指標",
                         kessan:"決算から作る指標"};
@@ -841,42 +905,136 @@ function openSortPop(k){
   document.getElementById("sortpopclose").focus();
 }
 
+/* ============ 並び替えピッカー(U3-h) ============
+   プルダウンでは項目名しか見えず、選ぶ前に意味が分からなかった。
+   タップで一覧を開き、1項目1行(名前＋1行説明)で読みながら選べるようにする。
+   「詳しく」でその行だけ展開し、全文と落とし穴を出す。
+   落とし穴のある項目は「詳しく⚠」と橙色にして、開く前に分かるようにした。 */
+const SORT_SRC_ORDER = ["price", "analy", "kessan"];
+let pkSlot = 0;   // いま編集している段(0始まり)
+
+// 説明文は将来 Python 側から流し込む可能性があるので、必ずエスケープを通す
+function pkEsc(s){
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function pkHost(){
+  let b = document.getElementById("pkback");
+  if(b) return b;
+  b = document.createElement("div");
+  b.id = "pkback";
+  b.setAttribute("role", "dialog");
+  b.innerHTML = '<div id="pksheet">'
+    + '<div id="pkhd"><h3>並び替えの項目</h3><p id="pksub"></p></div>'
+    + '<div id="pkbd"></div>'
+    + '<div id="pkft"><button type="button" id="pkclose">閉じる</button></div>'
+    + '</div>';
+  document.body.appendChild(b);
+  b.addEventListener("click", function(e){ if(e.target === b) pkClose(); });
+  document.getElementById("pkclose").onclick = pkClose;
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && b.classList.contains("on")) pkClose(); });
+  return b;
+}
+
+function pkClose(){
+  const b = document.getElementById("pkback");
+  if(b) b.classList.remove("on");
+}
+
+function pkOpen(i){
+  pkSlot = i;
+  const b = pkHost();
+  document.getElementById("pksub").textContent =
+    "第" + (i + 1) + "キー" + (i === 0 ? "（最優先）" : "");
+  pkBuild();
+  b.classList.add("on");
+}
+
+function pkBuild(){
+  // 他の段で使用中の項目は出さない。同じ段の現在値は残す
+  const used = sortList.map(function(s, j){ return j === pkSlot ? null : s.k; })
+                       .filter(Boolean);
+  const cur = sortList[pkSlot] ? sortList[pkSlot].k : null;
+  let h = '<button type="button" class="pkopt" data-k="">'
+        + '<span class="n">— 指定なし —</span>'
+        + '<span class="d">この段を使わない</span></button>';
+  SORT_SRC_ORDER.forEach(function(g){
+    const ks = Object.keys(SORT_HELP).filter(function(k){
+      return SORT_HELP[k].s === g && used.indexOf(k) < 0; });
+    if(!ks.length) return;
+    h += '<div class="pkgrp">' + pkEsc(SORT_SRC_LABEL[g] || g) + '</div>';
+    ks.forEach(function(k){
+      const v = SORT_HELP[k];
+      h += '<div class="pkrow' + (k === cur ? ' sel' : '') + '" data-s="' + v.s + '">'
+        +    '<button type="button" class="pkopt" data-k="' + k + '">'
+        +      '<span class="n">' + pkEsc(v.n)
+        +        (k === cur ? '<span class="chk">✓</span>' : '') + '</span>'
+        +      '<span class="d">' + pkEsc(v.s1 || v.d) + '</span>'
+        +    '</button>'
+        +    '<button type="button" class="pkmore' + (v.p ? ' warn' : '') + '" '
+        +      'data-m="' + k + '">' + (v.p ? "詳しく⚠" : "詳しく") + '</button>'
+        +    '<div class="pkdet" id="pkdet-' + k + '">'
+        +      '<p class="dd">' + pkEsc(v.d) + '</p>'
+        +      (v.p ? '<p class="pp"><b>注意</b> ' + pkEsc(v.p) + '</p>' : '')
+        +    '</div>'
+        +  '</div>';
+    });
+  });
+  const bd = document.getElementById("pkbd");
+  bd.innerHTML = h;
+  bd.scrollTop = 0;
+  bd.querySelectorAll(".pkopt").forEach(function(b){
+    b.onclick = function(){
+      stopPlay();
+      const k = b.dataset.k, i = pkSlot;
+      if(!k){ sortList.splice(i, 1); }
+      else if(sortList[i]){ sortList[i].k = k; }
+      else { sortList.push({k:k, dir:-1}); }
+      if(sortList.length === 0) sortList = [{k:"rt", dir:-1}];
+      pkClose();
+      render();
+    };
+  });
+  bd.querySelectorAll(".pkmore").forEach(function(b){
+    b.onclick = function(e){
+      e.stopPropagation();
+      const d = document.getElementById("pkdet-" + b.dataset.m);
+      const on = d.classList.toggle("on");
+      const v = SORT_HELP[b.dataset.m];
+      b.textContent = on ? "閉じる" : (v && v.p ? "詳しく⚠" : "詳しく");
+    };
+  });
+}
+
 // 並び替えスロット（第1〜第5）を描画。埋まっている段＋空き1段を表示
+// U3-h: <select> をやめ、タップでピッカーを開くボタンにした
 function renderSortSlots(){
   const host = $("sortslots");
   const rows = Math.min(sortList.length + 1, SORT_MAX);
   let html = "";
   for(let i=0; i<rows; i++){
     const cur = sortList[i];
-    const opts = ['<option value="">— 指定なし —</option>'].concat(
-      SORT_DEFS.filter(([k])=>{
-        // 他の段で既に使っているキーは出さない（同じ段の現在値は残す）
-        const used = sortList.findIndex(s=>s.k===k);
-        return used < 0 || used === i;
-      }).map(([k,label])=>
-        '<option value="'+k+'"'+(cur && cur.k===k ? ' selected' : '')+'>'+label+'</option>')
-    ).join("");
+    const v = cur ? SORT_HELP[cur.k] : null;
     html += '<div class="slot"><span class="pri">第'+(i+1)+'</span>'+
-            '<select class="skey'+(cur?' set':'')+'" data-i="'+i+'">'+opts+'</select>'+
+            '<button type="button" class="pick'+(cur?' set':'')+'" data-i="'+i+'">'+
+              (v ? '<span class="sq" style="background:'+
+                     (SORT_SRC_COLOR[v.s] || "#78889a")+'"></span>'+
+                   '<span class="nm">'+pkEsc(v.n)+'</span>'
+                 : '<span class="nm ph">— 指定なし —</span>')+
+              '<span class="arw">▼</span></button>'+
             (cur ? '<button class="sdir'+(cur.dir<0?' on':'')+'" data-i="'+i+'">'+
                    (cur.dir<0 ? "↓ 大→小" : "↑ 小→大")+'</button>' : '')+
             '</div>';
   }
   host.innerHTML = html;
 
-  host.querySelectorAll("select.skey").forEach(sel=>{
-    sel.onchange = ()=>{
-      stopPlay();
-      const i = Number(sel.dataset.i), v = sel.value;
-      if(!v){ sortList.splice(i, 1); }
-      else if(sortList[i]){ sortList[i].k = v; }
-      else { sortList.push({k:v, dir:-1}); }
-      if(sortList.length === 0) sortList = [{k:"rt", dir:-1}];
-      render();
-    };
+  host.querySelectorAll("button.pick").forEach(function(b){
+    b.onclick = function(){ stopPlay(); pkOpen(Number(b.dataset.i)); };
   });
-  host.querySelectorAll("button.sdir").forEach(b=>{
-    b.onclick = ()=>{
+  host.querySelectorAll("button.sdir").forEach(function(b){
+    b.onclick = function(){
       stopPlay();
       const i = Number(b.dataset.i);
       if(sortList[i]) sortList[i].dir = -sortList[i].dir;
@@ -925,7 +1083,7 @@ function bizLine(d){
   if(r7 !== null)  p.push('<span style="color:'+A+'">改定7d '+r7+'</span>');
   if(r30 !== null) p.push('<span style="color:'+DIM+'">30d '+r30+'</span>');
   const rd = num(d.revdiff);
-  if(rd !== null)  p.push('<span style="color:'+DIM+'">人数差 '+rd+'</span>');
+  if(rd !== null)  p.push('<span style="color:'+DIM+'">人数割合 '+rd+'</span>');
   const pg = num(d.peg);
   if(pg !== null)  p.push('<span style="color:'+A+'">PEG '+pg+'</span>');
   const pe = num(d.per, 1);
