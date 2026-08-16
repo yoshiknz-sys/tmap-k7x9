@@ -36,8 +36,11 @@
   .f[data-k="macdv"].on{background:#2962FF; border-color:#2962FF; color:#eaf0ff;}
   .f[data-k="uptr"].on{background:#f2994a; border-color:#f2994a; color:#2b1502;}
   #mvrow, #mvnrow{display:none;}
-  #mvnnote{display:none; margin:2px 14px 4px; font-size:11px;
-           line-height:1.65; color:var(--dim); max-width:62ch;}
+  #mvnnote{display:none; margin:2px 14px 6px; font-size:11px;
+           line-height:1.7; color:var(--dim);
+           /* 幅は制限しない。画面幅に合わせて自然に折り返す */
+           text-align:justify; word-break:normal;
+           overflow-wrap:anywhere; line-break:strict;}
   #mvrow .pill.on, #mvnrow .pill.on{background:#2962FF; border-color:#2962FF; color:#eaf0ff;}
   #stale{display:none; margin:6px 14px 0; padding:7px 10px; border-radius:8px;
          background:rgba(242,201,76,0.10); border:1px solid rgba(242,201,76,0.40);
