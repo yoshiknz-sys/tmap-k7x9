@@ -384,6 +384,9 @@ function axVal(d, key){
   const v = d[key];
   return (v === undefined || v === null || v !== v) ? null : v;
 }
+// ホバーに出す用の丸め。Hist は引き算なので生値だと 13.600000000000001 になる
+const axFix = v => (v === null ? null : Math.round(v * 10) / 10);
+
 // 両軸とも値がある点だけを描く。null を0として打つと嘘の位置になる
 const axOK = d => axVal(d, xKey) !== null && axVal(d, yKey) !== null;
 
@@ -423,9 +426,16 @@ function quadLabel(key){
   return {leader: X+"強・"+Y+"強", dipbuy: X+"強・"+Y+"弱",
           bounce: X+"弱・"+Y+"強", down:   X+"弱・"+Y+"弱"}[key];
 }
+const QUAD_ZONES = new Set(["leader", "dipbuy", "bounce", "down"]);
+function zoneName(d){
+  const k = zoneKey(d);
+  return QUAD_ZONES.has(k) ? quadLabel(k) : ZONES[k].label;
+}
+
 function zoneBadge(d){
   const z = zoneOf(d);
-  return '<span class="zn" style="color:'+z.color+';background:'+z.bg+'">'+z.label+'</span>';
+  return '<span class="zn" style="color:'+z.color+';background:'+z.bg+'">'
+       + zoneName(d) + '</span>';
 }
 
 // ---- 象限フィルタ: 選択中の軸としきい値で動的に判定 ----
@@ -743,8 +753,8 @@ function render(){
         : {size:10, color:"#0d1117"},
       marker:{size:S.map(d=>Math.max(16, 9+Math.sqrt(d.n)*3.4)),
               color:S.map(d=>d.color), opacity:0.9, line:{color:"#0d1117", width:1.5}},
-      customdata:S.map((d,i)=>[d.sector, d.n, axVal(d,xKey), axVal(d,yKey), i+1, d.stars,
-                               zoneOf(d).label, mvCnt(d)]),
+      customdata:S.map((d,i)=>[d.sector, d.n, axFix(axVal(d,xKey)), axFix(axVal(d,yKey)), i+1, d.stars,
+                               zoneName(d), mvCnt(d)]),
       hovertemplate:"<b>%{customdata[4]}. %{customdata[0]}</b>（%{customdata[1]}銘柄・★%{customdata[5]}"+
                     "・MACD-V %{customdata[7]}）　<b>%{customdata[6]}</b><br>"+
                     axLabel(xKey)+": %{customdata[2]}"+axUnit(xKey)+"　"+
@@ -796,8 +806,8 @@ function render(){
         line:{color:rows.map(d=>d.star?"#f2c94c":"#0d1117"),
               width:rows.map(d=>d.star?2.5:1)},
       },
-      customdata:rows.map((d,i)=>[d.name, d.code, d.sector, axVal(d,xKey), axVal(d,yKey), i+1,
-                                  d.star?" ★整列":"", zoneOf(d).label,
+      customdata:rows.map((d,i)=>[d.name, d.code, d.sector, axFix(axVal(d,xKey)), axFix(axVal(d,yKey)), i+1,
+                                  d.star?" ★整列":"", zoneName(d),
                                   !has(mvVal(d)) ? "—"
                                     : ("MACD-V "+mvVal(d)+" − Sig "+mvSig(d)
                                        +" = Hist"+(mvGap(d)>=0?"+":"")+mvGap(d).toFixed(1)
