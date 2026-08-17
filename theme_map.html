@@ -98,17 +98,18 @@
   .slot .pick .arw{flex:none; color:var(--dim); font-size:10px;}
   .slot .pick.set{border-color:var(--acc); color:#eafff2;}
   /* ---- 並び替えピッカー(U3-h) ---- */
-  #pkback{position:fixed; inset:0; background:rgba(4,8,12,.76); display:none;
+  #pkback, .pkback{position:fixed; inset:0; background:rgba(4,8,12,.76); display:none;
       align-items:flex-end; justify-content:center; z-index:9998;}
-  #pkback.on{display:flex;}
-  #pksheet{width:100%; max-width:560px; max-height:82vh; display:flex;
+  #pkback.on, .pkback.on{display:flex;}
+  #pksheet, .pksheet{width:100%; max-width:560px; max-height:82vh; display:flex;
       flex-direction:column; background:var(--panel); border:1px solid var(--line);
       border-radius:16px 16px 0 0; box-shadow:0 -18px 50px rgba(0,0,0,.6);}
-  @media(min-width:600px){#pkback{align-items:center;} #pksheet{border-radius:16px;}}
-  #pkhd{padding:14px 16px 10px; border-bottom:1px solid var(--line); flex:none;}
-  #pkhd h3{margin:0 0 3px; font-size:15px; color:#eef4f9; font-weight:700;}
-  #pkhd p{margin:0; font-size:11.5px; color:var(--dim);}
-  #pkbd{overflow-y:auto; padding:4px 0; -webkit-overflow-scrolling:touch;}
+  @media(min-width:600px){#pkback, .pkback{align-items:center;}
+                        #pksheet, .pksheet{border-radius:16px;}}
+  #pkhd, .pkhd{padding:14px 16px 10px; border-bottom:1px solid var(--line); flex:none;}
+  #pkhd h3, .pkhd h3{margin:0 0 3px; font-size:15px; color:#eef4f9; font-weight:700;}
+  #pkhd p, .pkhd p{margin:0; font-size:11.5px; color:var(--dim);}
+  #pkbd, .pkbd{overflow-y:auto; padding:4px 0; -webkit-overflow-scrolling:touch;}
   .pkgrp{padding:12px 16px 4px; font-size:10.5px; letter-spacing:.14em; color:var(--dim);}
   .pkrow{display:flex; flex-wrap:wrap; align-items:center;
       border-left:2px solid transparent; border-bottom:1px solid #1b232c;}
@@ -137,8 +138,8 @@
       background:rgba(255,194,102,.07); border-left:2px solid #ffc266;
       font-size:12px; color:#e2d6bd; line-height:1.65;}
   .pkdet .pp b{color:#ffc266;}
-  #pkft{padding:9px 16px 13px; border-top:1px solid var(--line); flex:none;}
-  #pkft button{width:100%; padding:11px; border-radius:9px; border:1px solid var(--line);
+  #pkft, .pkft{padding:9px 16px 13px; border-top:1px solid var(--line); flex:none;}
+  #pkft button, .pkft button{width:100%; padding:11px; border-radius:9px; border:1px solid var(--line);
       background:#1c2632; color:#eef4f9; font-size:15px; font-family:inherit; cursor:pointer;}
   .slot .sdir{border:1px solid var(--line); background:var(--panel); color:var(--tx);
       border-radius:8px; padding:7px 10px; font-size:12px; cursor:pointer;
@@ -156,6 +157,9 @@
       color:var(--tx); border-radius:999px; padding:6px 12px; font-size:12px;
       font-family:inherit; white-space:nowrap; cursor:pointer;}
   #hpbtn:active{background:#1c2632;}
+  #xrow .more.set, #yrow .more.set{border-color:#9fb4ff; color:#dbe3ff;}
+  #axsheet .pkgrp{padding-top:10px;}
+  #axnow{padding:9px 14px 0; font-size:10.5px; color:var(--dim); line-height:1.55;}
   /* ---- 用語解説(U3-i) ---- */
   #hp{position:fixed; inset:0; background:var(--bg); display:none;
       flex-direction:column; z-index:9999;}
@@ -339,6 +343,12 @@ const ZONES = {
    参照先が変わる。業種には Hist の列が無いのでレンダ時に中央値を集計する。
    （並び替えの mv は業種では「該当数」。用途が違うので別の量にしてある） */
 const RET_KEYS = new Set(["r3m","r20","r15","r10","r5","r1","rt"]);
+/* 軸に選べる項目(U4)。基準は「符号があって、0が意味を持つ量」。
+   PEG・予想PER・決算後日数・勢い・ゾーン・★・押し幅・Hist連続・動いてない度は
+   0が下端で上下に割れないため入れていない。四隅が成立しないので軸にならない。
+   並び順は SORT_HELP のキー順に従う */
+const AX_KEYS = ["r3m","r20","r15","r10","r5","r1","rt","mv","d20",
+                 "revm7","revm30","revdiff","e1d","egap"];
 const isRet = k => RET_KEYS.has(k);
 
 let HIST_BY_SECTOR = {};       // {lag: {業種: 中央値}}。render のたびに作り直す
@@ -599,10 +609,12 @@ function makeLayout(xr, yr, xt, yt, dateStamp){
              captureevents:true});
     QUAD_KEYS.push(key);
   };
-  if(xr[1]>0&&yr[1]>0) addq(xr[1]-0.02,yr[1]-0.02,"リーダー","#3ddc84","right","top","leader");
-  if(xr[0]<0&&yr[1]>0) addq(xr[0]+0.02,yr[1]-0.02,"⚠反発","#ff5d73","left","top","rebound");
-  if(xr[0]<0&&yr[0]<0) addq(xr[0]+0.02,yr[0]+0.02,"下降","#ff5d73","left","bottom","down");
-  if(xr[1]>0&&yr[0]<0) addq(xr[1]-0.02,yr[0]+0.02,"押し目","#f2c94c","right","bottom","dip");
+  // 名前は quadLabel() が軸に応じて出し分ける。
+  // 両軸リターン系なら従来名、それ以外は「20D強・改定30d弱」のように軸名を使う
+  if(xr[1]>0&&yr[1]>0) addq(xr[1]-0.02,yr[1]-0.02,quadLabel("leader"),"#3ddc84","right","top","leader");
+  if(xr[0]<0&&yr[1]>0) addq(xr[0]+0.02,yr[1]-0.02,quadLabel("bounce"),"#ff5d73","left","top","rebound");
+  if(xr[0]<0&&yr[0]<0) addq(xr[0]+0.02,yr[0]+0.02,quadLabel("down"),"#ff5d73","left","bottom","down");
+  if(xr[1]>0&&yr[0]<0) addq(xr[1]-0.02,yr[0]+0.02,quadLabel("dipbuy"),"#f2c94c","right","bottom","dip");
   ql.push({x:(xr[0]+xr[1])/2,y:yr[0]+(yr[1]-yr[0])*0.42,text:dateStamp,showarrow:false,
            font:{color:"#232d38",size:36},opacity:0.9});
   QUAD_KEYS.push(null);   // 日付スタンプはタップ対象外
@@ -831,6 +843,12 @@ function updateButtons(){
     b.classList.toggle("on", Number(b.dataset.lag)===mvLag));
   document.querySelectorAll("#mvnrow .mvn").forEach(b=>
     b.classList.toggle("on", Number(b.dataset.n)===mvN));
+  document.querySelectorAll(".more").forEach(b=>{
+    const k = (b.dataset.side === "x") ? xKey : yKey;
+    const set = !isRet(k);
+    b.textContent = (set ? axLabel(k) : "その他") + " \u25be";
+    b.classList.toggle("set", set);
+  });
   document.querySelectorAll("#xrow .ax").forEach(b=>
     b.classList.toggle("on", b.dataset.k===xKey));
   document.querySelectorAll("#yrow .ax").forEach(b=>
@@ -871,8 +889,18 @@ PERIOD_KEYS.forEach(k=>{
   $("xrow").appendChild(bx);
   const by = document.createElement("button");
   by.className = "pill sm ax"; by.dataset.k = k; by.textContent = PERIOD_LABEL[k];
-  by.onclick = ()=>{ stopPlay(); yKey=k; render(); };
+  by.onclick = ()=>{ stopPlay(); yKey=k; if(isRet(k)) lastRetY=k; render(); };
   $("yrow").appendChild(by);
+});
+
+// 行の末尾。時間軸に無い項目を選ぶ入口。
+// 選択中は「その他」ではなくその項目名を出す（7つが全部消灯して
+// 何が選ばれているか分からなくなるのを防ぐ）
+["x","y"].forEach(side=>{
+  const b = document.createElement("button");
+  b.className = "pill sm more"; b.dataset.side = side;
+  b.onclick = ()=>{ stopPlay(); axOpen(side); };
+  $(side === "x" ? "xrow" : "yrow").appendChild(b);
 });
 
 [1,0].forEach(lag=>{
@@ -1119,6 +1147,98 @@ function pkBuild(){
   });
 }
 
+/* ============ 軸シート(U4-c) ============
+   時間軸ボタンに無い項目を選ぶための一覧。ピッカーと同じ形にしてある。
+   並び替えとの違いは3つ:
+     ・14項目だけ（軸にできない9項目は出さない）
+     ・「指定なし」を出さない（軸は必ず何かが選ばれている）
+     ・使用中の項目も出す（隠すと横↔縦の入れ替えができなくなる） */
+let axSide = "x";      // いま編集している軸
+
+function axHost(){
+  let b = document.getElementById("axback");
+  if(b) return b;
+  b = document.createElement("div");
+  b.id = "axback"; b.className = "pkback";
+  b.setAttribute("role", "dialog");
+  b.innerHTML = '<div id="axsheet" class="pksheet">'
+    + '<div class="pkhd"><h3 id="axttl"></h3><p id="axsub"></p></div>'
+    + '<div id="axbd" class="pkbd"></div>'
+    + '<div class="pkft"><button type="button" id="axclose">閉じる</button></div>'
+    + '</div>';
+  document.body.appendChild(b);
+  b.addEventListener("click", function(e){ if(e.target === b) axClose(); });
+  document.getElementById("axclose").onclick = axClose;
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && b.classList.contains("on")) axClose(); });
+  return b;
+}
+function axClose(){
+  const b = document.getElementById("axback");
+  if(b) b.classList.remove("on");
+}
+function axOpen(side){
+  axSide = side;
+  const b = axHost();
+  document.getElementById("axttl").textContent =
+    (side === "x" ? "横軸" : "縦軸") + "を選ぶ";
+  document.getElementById("axsub").textContent =
+    "しきい値のない項目は0を境に上下（左右）へ分かれます";
+  axBuild();
+  b.classList.add("on");
+}
+function axBuild(){
+  const cur = (axSide === "x") ? xKey : yKey;
+  const oth = (axSide === "x") ? yKey : xKey;
+  let h = "", last = null;
+  AX_KEYS.forEach(function(k){
+    const v = SORT_HELP[k];
+    if(!v) return;
+    if(v.s !== last){
+      h += '<div class="pkgrp">' + pkEsc(SORT_SRC_LABEL[v.s] || v.s) + '</div>';
+      last = v.s;
+    }
+    let mark = "";
+    if(k === cur) mark = '<span class="chk">✓</span>';
+    else if(k === oth) mark = '<span class="chk" style="color:#9fb4ff">●'
+                            + (axSide === "x" ? "縦" : "横") + '</span>';
+    h += '<div class="pkrow' + (k === cur ? ' sel' : '') + '" data-s="' + v.s + '">'
+      +    '<button type="button" class="pkopt" data-k="' + k + '">'
+      +      '<span class="n">' + pkEsc(v.n) + mark + '</span>'
+      +      '<span class="d">' + pkEsc(v.s1 || v.d) + '</span>'
+      +    '</button>'
+      +    '<button type="button" class="pkmore' + (v.p ? ' warn' : '') + '" '
+      +      'data-m="' + k + '">' + (v.p ? "詳しく⚠" : "詳しく") + '</button>'
+      +    '<div class="pkdet" id="axdet-' + k + '">'
+      +      '<p class="dd">' + pkEsc(v.d) + '</p>'
+      +      (v.p ? '<p class="pp"><b>注意</b> ' + pkEsc(v.p) + '</p>' : '')
+      +    '</div>'
+      +  '</div>';
+  });
+  const bd = document.getElementById("axbd");
+  bd.innerHTML = h;
+  bd.scrollTop = 0;
+  bd.querySelectorAll(".pkopt").forEach(function(b){
+    b.onclick = function(){
+      stopPlay();
+      const k = b.dataset.k;
+      if(axSide === "x") xKey = k;
+      else { yKey = k; if(isRet(k)) lastRetY = k; }   // ④が使う軸を覚えておく
+      axClose();
+      render();
+    };
+  });
+  bd.querySelectorAll(".pkmore").forEach(function(b){
+    b.onclick = function(e){
+      e.stopPropagation();
+      const d = document.getElementById("axdet-" + b.dataset.m);
+      const on = d.classList.toggle("on");
+      const v = SORT_HELP[b.dataset.m];
+      b.textContent = on ? "閉じる" : (v && v.p ? "詳しく⚠" : "詳しく");
+    };
+  });
+}
+
 // 並び替えスロット（第1〜第5）を描画。埋まっている段＋空き1段を表示
 // U3-h: <select> をやめ、タップでピッカーを開くボタンにした
 function renderSortSlots(){
@@ -1171,6 +1291,12 @@ const HELP_TOPICS = [
  {g:"screen", n:"全銘柄", s1:"業種でまとめずフラットに全件出す",
   d:"対象全銘柄を並び替え順に一覧表示する。リストは100件ずつ追加読み込み。",
   p:"点が多いためチャートのコードラベルは省略される。［ラベル］ボタンで銘柄名を出せる。"},
+ {g:"screen", n:"軸に選べる項目", s1:"14項目。0を境に上下へ割れるものだけ",
+  d:"時間軸の7つ（3M/20D/15D/10D/5D/1D/当日）に加えて、Hist・20SMA乖離・analy改定7d・analy改定30d・analy改定人数割合・決算翌日騰落・決算ギャップの7つを軸にできる。行の末尾の［その他▼］から選ぶ。選ぶとボタンがその項目名に変わる。",
+  p:"PEG・予想PER・決算後日数・勢い・ゾーン・★uptr押・uptr押atr・Hist連続・動いてない度は軸に選べない。0が下端にある量で、上下（左右）に割れないため四隅が成立しないから。"},
+ {g:"screen", n:"時間軸以外を選んだとき", s1:"0が境になり、四隅の名前も変わる",
+  d:"時間軸には期間ごとのしきい値がある（3M±5.0%、5D±1.0%など）が、それ以外の7項目は0が境になる。プラスなら上・右、マイナスなら下・左。四隅の名前も「20D強・analy改定30d弱」のように軸名そのものに変わる。「リーダー」「押し目」は横=長期の株価・縦=短期の株価を前提にした名前なので、他の組み合わせでは使わない。",
+  p:"しきい値が0だと中間の帯が無くなるので、ゾーンは9分類ではなく4分類になる（点火・失速・継続・中立・弱が出ない）。時間軸に戻せば9分類に戻る。またMACD-Vフィルタの④は、縦軸が時間軸でない間は直前に使っていた時間軸で判定する（「改定がマイナス」に化けないようにするため）。"},
  {g:"screen", n:"四隅のラベル", s1:"タップで象限に絞り込む",
   d:"リーダー / 押し目 / ⚠反発 / 下降 の4つ。タップで絞り込み、選択中は●が付く。同じラベルを再タップすると全てに戻る。"},
  {g:"filter", n:"決算後", s1:"直近25営業日以内に決算を出した銘柄",
