@@ -490,6 +490,17 @@ const FILTER_LABEL = {all:"全て", every:"全銘柄", leader:"リーダー", di
                       macdv:"MACD-V", uptr:"uptr押"};
 // チャート4隅のラベル → フィルタキー
 const QUAD_OF_ZONE = {leader:"leader", dipbuy:"dip", bounce:"rebound", down:"down"};
+// その逆。フィルタキー → 四隅のキー
+const ZONE_OF_QUAD = {leader:"leader", dip:"dipbuy", rebound:"bounce", down:"down"};
+
+/* チップと見出しに出す名前(U4-f)。
+   両軸が時間軸のときは従来名のまま。それ以外は四隅と同じ名前にする。
+   チャートに「Hist弱・5D強」と出ているのに
+   チップが「⚠弱→反発」では、同じ銘柄群を指していると分からない */
+function filterLabel(k){
+  const z = ZONE_OF_QUAD[k];
+  return (z && !bothRet()) ? quadLabel(z) : FILTER_LABEL[k];
+}
 
 // 業種オブジェクトは code を持たない（個別銘柄は持つ）
 const isSector = d => d.code === undefined;
@@ -771,13 +782,13 @@ function render(){
       if(filter !== "all") rows = rows.filter(FILTERS[filter]);
       rows = rows.filter(bizPass).filter(axOK);
       titleText = drill + "（" + rows.length + "銘柄）" +
-                  (filter!=="all" ? "・" + FILTER_LABEL[filter] : "") + bizNote();
+                  (filter!=="all" ? "・" + filterLabel(filter) : "") + bizNote();
       $("back").style.display = "inline-block";
     }else{
       rows = snap.stocks.filter(FILTERS[filter]).filter(bizPass).filter(axOK);
       titleText = (filter === "every"
                    ? "全 " + rows.length + "銘柄を並び替え順に表示"
-                   : FILTER_LABEL[filter] + "該当 " + rows.length +
+                   : filterLabel(filter) + "該当 " + rows.length +
                      "銘柄・四隅ラベル再タップで解除") + bizNote();
       $("back").style.display = "none";
     }
@@ -835,7 +846,7 @@ function updateButtons(){
     const k = b.dataset.k;
     const n = k==="all" ? "" :
       "（" + snap.stocks.filter(FILTERS[k]).length + "）";
-    b.textContent = FILTER_LABEL[k] + n;
+    b.textContent = filterLabel(k) + n;
     b.classList.toggle("on", k===filter);
   });
   document.querySelectorAll("#bizrow .bz").forEach(b=>{
@@ -1340,6 +1351,9 @@ const HELP_TOPICS = [
  {g:"idx", n:"Hist と 連続", s1:"勢いの加速度と、その継続本数",
   d:"HistはPine Scriptの hist = macdV - Signal と同じ値で、TradingViewのヒストグラムの棒の高さに対応する。連続は①②③が成立している連続本数。",
   p:"どちらも「該当(✔)が先、非該当が後」の2段構え。↑（小さい順）では非該当が先頭に来る。業種一覧では★・乖離・連続はいずれも該当数で並ぶ。"},
+ {g:"idx", n:"上方修正数", s1:"業種のときだけ出る。何社が揃って上がったか",
+  d:"その業種で、直近1週間にアナリストの利益予想が上向きに改定された銘柄が何社あるかを「実数/母数」で表したもの。31/52なら52銘柄のうち31社。他の業績指標が中央値なのに対し、これだけ社数を数えている。中央値は「どれだけ上がったか（強さ）」、上方修正数は「何社が揃って上がったか（広がり）」で、見ているものが違う。1社が大幅に上方修正されただけの業種と、全社がじわじわ上がっている業種を見分けるために使う。",
+  p:"上がり幅は見ていない。+0.1%でも+8%でも同じ1社と数える。また母数が業種で大きく違い、電気機器は52銘柄、海運業は3銘柄しかない。銘柄数の少ない業種は同じ比率でも意味の重みが違う。個別銘柄を表示しているときは出ない。"},
  {g:"idx", n:"20SMA乖離", s1:"(終値÷20日単純移動平均−1)×100",
   d:"終値が20日の単純移動平均からどれだけ離れているかを%で表したもの。",
   p:"★整列の判定はEMA20なので、この数値とは一致しない。"},
