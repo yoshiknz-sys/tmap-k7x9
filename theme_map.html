@@ -61,12 +61,21 @@
   #list{padding:2px 14px 8px;}
   .li{display:flex; align-items:center; gap:8px; padding:7px 2px;
       border-bottom:1px solid #1a222c; font-size:13px; flex-wrap:wrap;}
+  /* 業種名の直後に置く。.nm の中に入れるので、行末ではなく文の流れに並ぶ */
+  .li a.sq{display:inline-block; font-size:10.5px; color:#fff; text-decoration:none;
+      background:#4a5766; border-radius:5px; padding:1px 7px; margin-left:1em;
+      vertical-align:1px; letter-spacing:.02em;}
+  .li a.sq:active{background:#333d49;}
+  /* ?code= で飛んできた銘柄を強調する。数秒たったら消える */
+  .li.hit{background:#1b2a24; border-left:2px solid var(--acc);
+      margin-left:-2px; padding-left:4px;}
   .li .vals{width:100%; padding-left:34px; font-size:11.5px; color:var(--dim);
             font-variant-numeric:tabular-nums; letter-spacing:.01em; margin-top:1px;}
 .vals.biz{margin-top:2px;opacity:.95}
   .li .no{min-width:26px; text-align:right; color:var(--dim); font-variant-numeric:tabular-nums;}
   .li .dot{width:11px; height:11px; border-radius:50%; flex:none;}
-  .li .nm{flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;}
+  /* 需給ボタンを中に入れたので、はみ出しても切らずに折り返す */
+  .li .nm{flex:1; min-width:0; white-space:normal; overflow-wrap:anywhere;}
   .li .sec{color:var(--dim); font-size:11px;}
   .li .st{color:var(--star); font-size:12px; flex:none;}
   .morewrap{display:flex; justify-content:center; padding:10px 0 4px;}
@@ -282,6 +291,43 @@ let mvLag = 0;              // 0=当日終値(既定) / 1=前日確定
                             // ザラ場中は未確定で動く点に注意
 let mvN   = 3;   // ①②③に必要な連続本数
 let QUAD_KEYS = [];         // layout.annotations の index → フィルタキー
+/* ---- 2画面連携(U4) ----
+   需給気圧図とは ?code=7203 で相互に飛ぶ。同じリポジトリなので相対パスでよい。
+   飛んできたときは絞り込みを解除して全銘柄にする。
+   「その銘柄が他と比べてどこにいるか」を見るのが目的なので、
+   1銘柄に絞ると散布図の意味が消える */
+const SQUEEZE_URL = "squeeze_map.html";
+const JUMP_CODE = (function(){
+  try{
+    const c = new URLSearchParams(location.search).get("code");
+    return (c && /^[0-9A-Z]{4,5}$/.test(c)) ? c : null;
+  }catch(e){ return null; }
+})();
+let _jumpDone = false;
+let _jumpInit = false;
+
+// 一覧に目的の銘柄が出るまでページを伸ばし、そこへスクロールして強調する
+function tryJump(){
+  if(!JUMP_CODE || _jumpDone) return;
+  // 絞り込まれていると目的の銘柄が居ないので、初回だけ全銘柄にする。
+  // ここで切り替えるのは、filter の宣言が JUMP_CODE より前にあるため
+  if(!_jumpInit){ _jumpInit = true; filter = "every"; drill = null; render(); return; }
+  const host = $("list");
+  if(!host) return;
+  const el = host.querySelector('.li[data-code="' + JUMP_CODE + '"]');
+  if(!el){
+    // まだページングの先にいる。「さらに表示」を自動で押す
+    const mb = $("listmore");
+    if(mb){ listShown += LIST_PAGE; render(); }
+    return;                       // render 経由でここへ戻ってくる
+  }
+  _jumpDone = true;
+  el.classList.add("hit");
+  el.scrollIntoView({behavior:"smooth", block:"center"});
+  // 強調は数秒で消す。ずっと色が付いていると通常表示と紛らわしい
+  setTimeout(function(){ el.classList.remove("hit"); }, 4000);
+}
+
 const LIST_PAGE = 100;      // リストの1回あたり表示件数
 let listShown = LIST_PAGE;  // 現在表示している件数
 const LAST_BAR_TODAY = true;
@@ -841,6 +887,7 @@ function render(){
   }
   $("title").textContent = titleText;
   updateButtons();
+  tryJump();   // ?code= で飛んできたとき、その行へスクロールする
 }
 
 function updateButtons(){
@@ -1586,11 +1633,14 @@ function renderList(allRows, snap){
       prevOK = ok;
     }
     return sep+
-    '<div class="li"><span class="no">'+(i+1)+'</span>'+
+    '<div class="li" data-code="'+d.code+'"><span class="no">'+(i+1)+'</span>'+
     '<span class="dot" style="background:'+sectorColor(snap,d.sector)+'"></span>'+
     '<span class="cd"><a href="https://jp.tradingview.com/chart/?symbol=TSE:'+d.code+'" target="_blank" rel="noopener" class="tv">'+d.code+'</a></span>'+
     '<span class="nm">'+(d.star?'<span class="st">★</span> ':'')+d.name+
-    ' <span class="sec">'+d.sector+'</span></span>'+
+    ' <span class="sec">'+d.sector+'</span>'+
+    // 需給気圧図へ。業種名の直後に置く（コードのTradingViewリンクとは離す）。
+    // 同じタブで開くので、戻るで往復できる
+    '<a class="sq" href="'+SQUEEZE_URL+'?code='+d.code+'">需給</a></span>'+
     (mvOK(d) ? '<span class="mv">MACD-V</span>' : '')+
     (upOK(d) ? '<span class="mv" style="color:#f2994a;border-color:#f2994a">押</span>' : '')+
     zoneBadge(d)+
