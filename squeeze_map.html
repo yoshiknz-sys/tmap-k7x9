@@ -107,6 +107,11 @@ select{
 .chart-body{padding:6px}
 svg{display:block;width:100%;height:auto}
 
+/* テーママップへの往復リンク(U4)。向こうの「需給」ボタンと同じ見た目 */
+.det-code a.tm{display:inline-block; font-size:10.5px; color:#fff;
+  text-decoration:none; background:#4a5766; border-radius:5px;
+  padding:1px 7px; margin-left:1em; vertical-align:1px; letter-spacing:.02em}
+.det-code a.tm:active{background:#333d49}
 /* ---------- detail ---------- */
 .search{position:relative;padding:10px 12px;border-bottom:1px solid var(--ink600)}
 .search input{
@@ -242,7 +247,7 @@ dt[data-tip]{border-bottom-style:dashed}
     </div>
     <div class="hd-meta">
       <span class="badge">機関＋個人</span>
-      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.7</span>
+      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.8</span>
       <div class="meta-item">データ日<b class="mono" id="m-calc">—</b></div>
       <div class="meta-item">機関データ<b class="mono" id="m-inst">—</b></div>
       <div class="meta-item">生成日<b class="mono" id="m-gen">—</b></div>
@@ -1050,7 +1055,7 @@ function drawDetail(){
      </div>`;
 
   box.innerHTML=`
-    <div class="det-code"><a href="https://jp.tradingview.com/chart/?symbol=TSE:${s.code}" target="_blank" rel="noopener" class="tv">${s.code}</a>　${f(s.px,1)}円</div>
+    <div class="det-code"><a href="https://jp.tradingview.com/chart/?symbol=TSE:${s.code}" target="_blank" rel="noopener" class="tv">${s.code}</a>　${f(s.px,1)}円<a class="tm" href="theme_map.html?code=${s.code}">テーマ</a></div>
     <h2 class="det-name">${s.name}</h2>
     <span class="det-sector" style="border-color:${sectorColor(s.sector)};color:${sectorColor(s.sector)}">${s.sector}</span>
 
@@ -1302,6 +1307,25 @@ document.querySelectorAll("#tbl th").forEach(th=>th.addEventListener("click",()=
   bindSearch();
   drawRegime();
   render();
+
+  // テーママップから ?code=7203 で飛んできたら、その銘柄のカルテを開く。
+  // select(code, true) が既にカルテまでスクロールしてくれる。
+  // squeeze.json は260営業日未満の銘柄を除いているので、
+  // 向こうにあってこちらに無い銘柄がある。その場合は通常表示のままにする
+  try{
+    const JUMP_CODE = new URLSearchParams(location.search).get("code");
+    if(JUMP_CODE && /^[0-9A-Z]{4,5}$/.test(JUMP_CODE)){
+      if(DATA.stocks.some(s => s.code === JUMP_CODE)){
+        select(JUMP_CODE, true);
+      }else{
+        const d = document.getElementById("det");
+        if(d) d.innerHTML =
+          '<div class="det-empty">' + JUMP_CODE +
+          ' はこの画面の対象外です<br>' +
+          '（上場から260営業日に満たない銘柄は集計していません）</div>';
+      }
+    }
+  }catch(e){}
 })();
 </script>
 </body>
