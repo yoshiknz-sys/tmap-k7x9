@@ -117,7 +117,7 @@ svg{display:block;width:100%;height:auto}
 .wallmid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#46556a}
 </style></head><body>
 <header><div class="hrow">
-  <h1>市場レジーム <span class="ver">UI v1.0</span><small>今日そもそも買っていい日か ・ 2026-08-18</small></h1>
+  <h1>市場レジーム <span class="ver">UI v1.1</span><small>今日そもそも買っていい日か ・ 2026-08-18</small></h1>
   <a class="navbtn" href="theme_map.html">テーマ</a>
   <a class="navbtn" href="squeeze_map.html">需給</a>
 </div></header>
@@ -456,8 +456,9 @@ function draw(){
       '<div class="secbox'+(SEL===c.key?' on':'')+'" id="sb-'+c.key+'" data-k="'+c.key+'">'
       +chBlock(c,true,true)+'</div>').join("")+'</div>';
 
-  // 折りたたみ1つだけを開閉する（見出しをタップしたとき）
-  document.querySelectorAll("#secharts .fold").forEach(el=>el.onclick=ev=>{
+  // 折りたたみ1つだけを開閉する（見出しをタップしたとき）。
+  // 画面のどこに出ても開くよう、範囲を限定しない
+  document.querySelectorAll(".fold").forEach(el=>el.onclick=ev=>{
     ev.stopPropagation();
     setFold(el, !document.getElementById("fb-"+el.dataset.f).classList.contains("open"));
   });
