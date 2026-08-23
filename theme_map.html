@@ -171,6 +171,14 @@
       color:var(--tx); border-radius:999px; padding:6px 12px; font-size:12px;
       text-decoration:none; white-space:nowrap;}
   a.navbtn:active{background:#1c2632;}
+  /* 画面の行き来。ヘッダーの下に独立した行で出す。
+     ヘッダーの中に混ぜるとレイアウトに埋もれて見えなくなる */
+  #navrow{display:flex; gap:8px; padding:8px 12px 0; align-items:center;}
+  #navrow .lb{font-size:11px; color:var(--dim); margin-right:2px;}
+  #navrow a{flex:none; border:1px solid var(--line); background:var(--panel);
+      color:var(--tx); border-radius:999px; padding:6px 14px; font-size:12.5px;
+      text-decoration:none; white-space:nowrap;}
+  #navrow a:active{background:#1c2632;}
   #xrow .more.set, #yrow .more.set{border-color:#9fb4ff; color:#dbe3ff;}
   #axsheet .pkgrp{padding-top:10px;}
   #axnow{padding:9px 14px 0; font-size:10.5px; color:var(--dim); line-height:1.55;}
@@ -231,10 +239,13 @@
 <header>
   <div class="hrow">
     <h1>日本株テーママップ <small>TOPIX Core30+Large70+Mid400 ・ 491銘柄 ・ 終値 <span id="asof"></span></small></h1>
-    <a class="navbtn" href="regime.html">地合い</a>
     <button type="button" id="hpbtn">用語解説</button>
   </div>
 </header>
+<div id="navrow"><span class="lb">画面</span>
+  <a href="regime.html">地合い</a>
+  <a href="squeeze_map.html">需給</a>
+</div>
 <div class="btnrow" id="timerow"><span class="axlab">時点</span></div>
 <div class="btnrow" id="xrow"><span class="axlab">横軸</span></div>
 <div class="btnrow" id="yrow"><span class="axlab">縦軸</span></div>
@@ -268,7 +279,7 @@
 </div>
 <footer>
   点をタップすると銘柄名と数値を表示。用語の意味は右上の［用語解説］から。
-  今日そもそも買っていい日かは［地合い］で。
+  今日そもそも買っていい日かは［地合い］で。一覧の行をダブルタップすると図に戻る。
   ※一般的な分析表示であり、投資助言ではありません。
 </footer>
 <script>
@@ -313,6 +324,29 @@ const JUMP_CODE = (function(){
 })();
 let _jumpDone = false;
 let _jumpInit = false;
+
+// 銘柄行をダブルタップすると散布図へ戻る。
+// スマホでは dblclick が拾えないことがあるので、
+// タップの間隔を自前で見る（同じ行を400ms以内に2回）
+let _tapAt = 0, _tapEl = null;
+function bindDoubleTap(){
+  const host = $("list");
+  if(!host) return;
+  host.querySelectorAll(".li").forEach(el => {
+    el.addEventListener("click", ev => {
+      // 銘柄コードや需給リンクを押したときは邪魔しない
+      if(ev.target.closest("a")) return;
+      const now = Date.now();
+      if(_tapEl === el && now - _tapAt < 400){
+        _tapAt = 0; _tapEl = null;
+        const c = $("chart");
+        if(c) c.scrollIntoView({behavior:"smooth", block:"start"});
+      }else{
+        _tapAt = now; _tapEl = el;
+      }
+    });
+  });
+}
 
 // 一覧に目的の銘柄が出るまでページを伸ばし、そこへスクロールして強調する
 function tryJump(){
@@ -896,6 +930,7 @@ function render(){
   $("title").textContent = titleText;
   updateButtons();
   tryJump();   // ?code= で飛んできたとき、その行へスクロールする
+  bindDoubleTap();   // 銘柄行をダブルタップで散布図へ戻る
 }
 
 function updateButtons(){
