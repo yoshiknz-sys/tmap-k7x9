@@ -1,0 +1,514 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>市場レジーム（モック v4）</title>
+<style>
+:root{--bg:#0d1117;--panel:#131a22;--line:#2a3540;--tx:#dce6ee;
+  --dim:#aebccd;--dim2:#8b9bad;--up:#3ddc84;--dn:#ff5d73;--warn:#f2c94c;--acc:#43c8e8}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--tx);font-size:14px;
+  font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP',system-ui,sans-serif}
+header{padding:14px 14px 0}
+.hrow{display:flex;align-items:flex-start;gap:10px}
+h1{margin:0;font-size:17px;flex:1}
+.ver{font-size:10px;color:var(--dim2);font-weight:400;border:1px solid var(--line);border-radius:4px;padding:1px 5px;vertical-align:2px}
+h1 small{display:block;color:var(--dim);font-size:11px;font-weight:400;margin-top:3px}
+.navbtn{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--tx);
+  border-radius:999px;padding:6px 12px;font-size:11.5px;text-decoration:none;white-space:nowrap}
+.mockwarn{margin:10px 14px 0;padding:7px 11px;border-radius:7px;
+  background:rgba(242,201,76,.09);border-left:2px solid var(--warn);
+  font-size:11.5px;color:#e6dcc6;line-height:1.6}
+.tabs{display:flex;gap:6px;padding:12px 14px 0;border-bottom:1px solid var(--line)}
+.tab{border:none;background:none;color:var(--dim);font-size:13px;font-family:inherit;
+  padding:7px 12px;border-bottom:2px solid transparent;cursor:pointer}
+.tab.on{color:var(--tx);border-bottom-color:var(--acc);font-weight:700}
+.sum{padding:12px 14px 2px}
+.sumhd{font-size:11px;color:var(--dim);padding-bottom:8px;line-height:1.7}
+.sumhd b{color:var(--tx)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:7px}
+.grid.sec4{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}
+.cell{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:8px 10px;cursor:pointer}
+.cell.on{border-color:var(--acc)}
+/* 項目名。元の大きさに戻す。
+   overflow:hidden にすると下線が1px切れて見えなくなるので使わない。
+   名前が長いときは日付が下の行に回るよう flex+wrap にする */
+.cell .lab{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;
+  font-size:11px;color:var(--dim);line-height:1.7}
+.cell .lab .d{margin-left:auto;font-size:9.5px;color:var(--dim2);white-space:nowrap}
+.cell .val{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.cell.sm .val{font-size:14px}
+.cell .val small{font-size:11px;font-weight:400;color:var(--dim);margin-left:2px}
+.cell .sub{margin-top:4px;font-size:11px;font-variant-numeric:tabular-nums;
+  color:var(--dim);line-height:1.6}
+.cell.sm .sub{font-size:10px}
+.chg{font-weight:700}
+.up{color:var(--up)}.dn{color:var(--dn)}.flat{color:var(--dim)}
+.ctl{display:flex;gap:6px;padding:10px 14px 2px;align-items:center;flex-wrap:wrap}
+.ctl .lb{font-size:11.5px;color:var(--dim);margin-right:2px}
+.pill{border:1px solid var(--line);background:var(--panel);color:var(--tx);
+  border-radius:999px;padding:5px 13px;font-size:12.5px;font-family:inherit;cursor:pointer}
+.pill.on{background:var(--acc);border-color:var(--acc);color:#05222b;font-weight:700}
+.charts{padding:6px 14px 30px}
+.lay{margin-top:16px}
+.layhd{font-size:11px;letter-spacing:.1em;color:var(--dim);padding:0 0 6px 2px;
+  border-bottom:1px solid var(--line);margin-bottom:10px}
+.ch{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:9px 10px 6px;margin-bottom:8px}
+.ch.on{border-color:var(--acc)}
+/* 業種のまとまり。1業種＝1枠。外枠だけ線を引き、
+   中のチャートの枠は消して二重にならないようにする */
+.secbox{border:1px solid #6b7a8c;border-radius:10px;padding:8px 8px 4px;
+  margin-bottom:14px;background:#10161d}
+.secbox.on{border-color:var(--acc)}
+.secbox > .ch{margin-bottom:6px;border:none;background:transparent;padding:0}
+.secbox > .ch.on{border:none}
+.secbox .sub2{margin-top:0;padding-top:0;border-top:none}
+/* 折りたたみの見出し。タップで開閉する */
+/* 折りたたみの見出し。名前が長いので、値は名前の下に置いて折り返しを防ぐ */
+.fold{display:flex;align-items:center;gap:8px;padding:6px 9px;margin-top:5px;
+  background:var(--panel);border:1px solid var(--line);border-radius:7px;cursor:pointer}
+.fold:active{background:#18212b}
+.fold .t{flex:1;min-width:0}
+.fold b{display:block;font-size:11.5px;font-weight:700;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.fold .n{display:block;font-size:11px;font-variant-numeric:tabular-nums;
+  color:var(--dim);margin-top:1px;white-space:nowrap}
+.fold .n .v{font-weight:700;font-size:12px}
+.fold .ar{flex:none;font-size:10px;color:var(--dim2);white-space:nowrap}
+.fold.open .ar{color:var(--acc)}
+.foldbody{display:none;padding:6px 0 0}
+.foldbody.open{display:block}
+.chhd{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;line-height:1.9}
+.chhd b{font-size:12.5px}
+/* 外部リンク。点線1pxは小さい文字だとほぼ見えないので、
+   青＋実線にして「押せる」と一目で分かるようにする */
+a.xl{color:#7fb3ff;text-decoration:none;border-bottom:1px solid #4a7ec0}
+a.xl:active{opacity:.6}
+a.xl.s{color:#7fb3ff;border-bottom:1px solid #4a7ec0}
+/* 数字はすべて同じ大きさに揃える（現在値・前日比・乖離・%TIL）。
+   「前日比」「20SMA乖離」などの語と日付だけ小さくする */
+.chhd .now,.chhd .num{font-size:12.5px;font-variant-numeric:tabular-nums;font-weight:700}
+.chhd .cap{font-size:10.5px;color:var(--dim2)}
+.chhd .cap .num{font-size:12.5px}
+.leg{display:flex;gap:9px;margin:3px 0;font-size:10.5px;color:var(--dim);flex-wrap:wrap}
+.leg span{display:inline-flex;align-items:center;gap:3px}
+.leg i{width:11px;height:2px;border-radius:1px;display:inline-block}
+.nt{font-size:10.5px;color:var(--dim2);line-height:1.65;margin-top:3px}
+.sub2{margin-top:7px;padding-top:6px;border-top:1px solid var(--line)}
+svg{display:block;width:100%;height:auto}
+.gl{stroke:#2f3b4a;stroke-width:1}
+.gv{stroke:#2a3543;stroke-width:1}
+.zl{stroke:#5b6b7e;stroke-width:1;stroke-dasharray:4 3}
+.ax{fill:var(--dim);font-size:7px}
+.axs{fill:var(--dim2);font-size:7.5px}
+.axz{fill:var(--dim2);font-size:6.5px}
+.axd{fill:var(--dim2);font-size:6.5px}
+.secrow{display:flex;align-items:center;gap:8px;padding:2px 0;font-size:12px}
+.secrow .n{width:88px;flex:none;color:var(--dim);font-size:10.5px}
+.secrow .b{flex:1;height:9px;background:#1a222c;border-radius:2px;position:relative}
+.secrow .b i{position:absolute;top:0;height:9px;border-radius:2px}
+.secrow .v{width:48px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.wallrow{display:flex;align-items:center;gap:8px;padding:2px 0;font-size:11.5px}
+.wallrow .s{width:56px;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
+.wallrow .b{flex:1;height:11px;position:relative}
+.wallrow .b i{position:absolute;top:0;height:11px;border-radius:2px}
+.wallrow.here{background:rgba(67,200,232,.10)}
+.wallrow.here .s{color:var(--acc);font-weight:700}
+.wallmid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#46556a}
+</style></head><body>
+<header><div class="hrow">
+  <h1>市場レジーム <span class="ver">UI v1.0</span><small>今日そもそも買っていい日か ・ 2026-08-18</small></h1>
+  <a class="navbtn" href="theme_map.html">テーマ</a>
+  <a class="navbtn" href="squeeze_map.html">需給</a>
+</div></header>
+<div id="status" class="mockwarn">読み込み中…</div>
+<div class="tabs">
+  <button class="tab on" data-t="main">市場全体</button>
+  <button class="tab" data-t="sec">業種別</button>
+</div>
+<div id="main">
+  <div class="sum">
+    <div class="sumhd"><b>今日の数値</b>（タップでチャートへ）<br>
+      <b>前日比</b>＝差分と騰落率／<b>20SMA乖離</b>＝20日平均から何%離れているか／
+      <b>%TIL</b>＝過去1年でどの位置か（100%が最高値）／
+      各項目の右上はそのデータの日付</div>
+    <div class="grid" id="grid"></div>
+  </div>
+  <div class="ctl"><span class="lb">期間</span>
+    <button class="pill on" data-r="63">3ヶ月</button>
+    <button class="pill" data-r="126">6ヶ月</button>
+    <button class="pill" data-r="250">1年</button>
+  </div>
+  <div class="charts" id="charts"></div>
+</div>
+<div id="sec" style="display:none">
+  <div class="sum">
+    <div class="sumhd"><b>33業種</b>（タップでチャートへ／チャートをタップで戻る）・
+      <b>20SMA乖離の大きい順</b><br>枠をタップで全部開く／開いた状態でタップすると一覧へ戻る<br>
+      下段は <b>機関 空売り損益率</b>（マイナス＝機関が負けている）</div>
+    <div class="grid sec4" id="secgrid"></div>
+  </div>
+  <div class="ctl"><span class="lb">期間</span>
+    <button class="pill on" data-r="63">3ヶ月</button>
+    <button class="pill" data-r="126">6ヶ月</button>
+    <button class="pill" data-r="250">1年</button>
+  </div>
+  <div class="charts" id="secharts"></div>
+</div>
+<script>
+const DATA_URL = "regime.json";
+let DATA=null, RANGE=63, SEL=null, TAB="main";
+const fmt=(v,u)=>(Math.abs(v)>=1000?Math.round(v).toLocaleString():(+v).toFixed(2))+(u||"");
+function cls(v,inv){if(Math.abs(v)<1e-9)return"flat";return (v>0)!==!!inv?"up":"dn";}
+const sign=v=>(v>0?"+":"")+(+v).toFixed(2);
+
+// データ日付の表示。基準（TOPIX）との差を営業日で数えて「?日遅れ」を付ける。
+// 手で書くと必ず古くなるので、日付から自動で出す
+let BASE_DATE = null;
+function bizDiff(a, b){
+  // a から b までの営業日数（土日を除く。祝日は見ていない）
+  let d = new Date(a + "T00:00:00"), e = new Date(b + "T00:00:00"), n = 0;
+  while(d < e){ d.setDate(d.getDate()+1); if(d.getDay()%6) n++; }
+  return n;
+}
+function asofHtml(c){
+  if(!c.asof) return "";
+  const md = c.asof.slice(5).replace("-","/");
+  if(!BASE_DATE || c.asof === BASE_DATE) return '<span class="cap">'+md+'</span>';
+  const n = bizDiff(c.asof, BASE_DATE);
+  return '<span class="cap">'+md
+       + (n>0 ? '<span style="opacity:.85">（'+n+'日遅れ）</span>' : '')+'</span>';
+}
+
+// 名前。外部の参照先があるものはリンクにする。
+// 四角やチャートのタップと衝突しないよう、クリックは伝播させない
+function nameHtml(c, small){
+  if(!c.url) return c.label;
+  return '<a class="xl'+(small?' s':'')+'" href="'+c.url+'" target="_blank"'
+       + ' rel="noopener" onclick="event.stopPropagation()">'+c.label+'</a>';
+}
+
+function chgHtml(c){
+  // 単位が%の指標は差分そのものが%（-4%→-5%なら「-1%」）。
+  // 騰落率を出すと「+25%」となって意味が壊れるので、差分だけに%を付ける
+  const u = (c.unit==="%") ? "%" : "";
+  let h='前日比 <span class="num chg '+cls(c.chg,c.inv)+'">'+sign(c.chg)+u+'</span>';
+  if(c.rate!==null&&c.rate!==undefined)
+    h+=' <span class="num '+cls(c.rate,c.inv)+'">'+sign(c.rate)+'%</span>';
+  return h;
+}
+function drawGrid(){
+  let h="";
+  DATA.layers.forEach(L=>L.cards.forEach(c=>{
+    h+='<div class="cell'+(SEL===c.key?' on':'')+'" data-k="'+c.key+'">'
+      +'<div class="lab">'+nameHtml(c,true)
+      +(c.asof?'<span class="d">'
+              +asofHtml(c).replace(/<span class="cap">|<\/span>$/g,'')+'</span>':'')
+      +'</div>'
+      +'<div class="val">'+fmt(c.now)+'<small>'+(c.unit||'')+'</small></div>'
+      +'<div class="sub">'+chgHtml(c)+'<br>'
+      +(c.dev!==null&&c.dev!==undefined
+         ?'20SMA乖離 <span class="'+cls(c.dev,c.inv)+'">'+sign(c.dev)+'%</span>　':'')
+      +'%TIL '+c.pctl
+      +(c.sub&&c.sub.label.indexOf('スプレッド')>=0
+         ?'<br>10年債との差 <span class="'+cls(c.sub.now)+'">'+sign(c.sub.now)+'%</span>':'')
+      +'</div></div>';}));
+  document.getElementById("grid").innerHTML=h;
+  bindCells("#grid");
+}
+function drawSecGrid(){
+  let h="";
+  DATA.seccards.forEach(c=>{
+    h+='<div class="cell sm'+(SEL===c.key?' on':'')+'" id="cd-'+c.key+'" data-k="'+c.key+'">'
+      +'<div class="lab">'+c.label+'</div>'
+      +'<div class="val">'+fmt(c.now)+'</div>'
+      +'<div class="sub"><span class="chg '+cls(c.rate)+'">'+sign(c.rate)+'%</span><br>'
+      +'乖離 <span class="'+cls(c.dev)+'">'+sign(c.dev)+'%</span><br>'
+      +'機関 <span class="'+cls(c.ipnl,true)+'">'+sign(c.ipnl)+'%</span></div></div>';});
+  document.getElementById("secgrid").innerHTML=h;
+  bindCells("#secgrid");
+}
+function bindCells(sel){
+  document.querySelectorAll(sel+" .cell").forEach(el=>el.onclick=()=>{
+    SEL=(SEL===el.dataset.k)?null:el.dataset.k; draw();
+    if(SEL){const t=document.getElementById("ch-"+SEL);
+            if(t)t.scrollIntoView({behavior:"smooth",block:"center"});}});
+}
+function chart(lines,now,w,hgt,axis,zero){
+  const n=Math.min(RANGE,lines[0].v.length);
+  const cut=lines.map(l=>l.v.slice(-n));
+  let lo,hi;
+  if(axis){lo=axis[0];hi=axis[1];}
+  else{lo=Math.min(...cut.flat());hi=Math.max(...cut.flat());
+       const p=(hi-lo)*.12||1;lo-=p;hi+=p;}
+  const L=40,R=58;
+  const X=i=>L+i/(n-1)*(w-L-R), Y=v=>hgt-22-(v-lo)/(hi-lo)*(hgt-32);
+  let g="";
+  for(let t=0;t<=3;t++){const y=9+t*(hgt-31)/3;
+    g+='<line class="gl" x1="'+L+'" y1="'+y+'" x2="'+(w-R)+'" y2="'+y+'"/>';}
+  (zero||[]).forEach(z=>{if(z<lo||z>hi)return;
+    g+='<line class="zl" x1="'+L+'" y1="'+Y(z)+'" x2="'+(w-R)+'" y2="'+Y(z)+'"/>'
+      +'<text class="axz" x="'+(L-3)+'" y="'+(Y(z)+3)+'" text-anchor="end">'+z+'</text>';});
+  g+='<text class="ax" x="2" y="14">'+fmt(hi)+'</text>'
+    +'<text class="ax" x="2" y="'+(hgt-18)+'">'+fmt(lo)+'</text>';
+  // 横軸は月の変わり目に目盛りを打つ。期間が長いときは間引く
+  const DS=DATA.dates.slice(-n);
+  const marks=[];
+  for(let i=1;i<n;i++){
+    if(DS[i] && DS[i-1] && DS[i].slice(0,7)!==DS[i-1].slice(0,7)) marks.push(i);
+  }
+  marks.forEach(i=>{
+    const x=X(i);
+    g+='<line class="gv" x1="'+x.toFixed(1)+'" y1="8" x2="'+x.toFixed(1)
+      +'" y2="'+(hgt-16)+'"/>'
+      +'<text class="axd" x="'+x.toFixed(0)+'" y="'+(hgt-4)
+      +'" text-anchor="middle">'+(+DS[i].slice(5,7))+'月</text>';
+  });
+  cut.forEach((v,si)=>{
+    const d=v.map((y,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1)).join(" ");
+    g+='<path d="'+d+'" fill="none" stroke="'+lines[si].c+'" stroke-width="'
+      +(lines[si].w||1)+'" opacity="'+(si?.75:1)+'"/>';});
+  const yv=Y(Math.max(lo,Math.min(hi,now)));
+  // %TIL は見出しに出すので、チャート内には現在値だけ置く
+  g+='<circle cx="'+(w-R)+'" cy="'+yv+'" r="2.6" fill="'+lines[0].c+'"/>'
+    +'<text class="ax" x="'+(w-R+5)+'" y="'+(yv+3)+'" style="fill:'+lines[0].c
+    +';font-weight:700">'+fmt(now)+'</text>';
+  return '<svg viewBox="0 0 '+w+' '+hgt+'">'+g+'</svg>';
+}
+// 棒（売買代金と空売り代金を重ねる）＋折れ線（空売り比率）。
+// 空売りは売買代金の内数なので、同じ基点から重ねて描けば割合がそのまま見える
+function chartBar(b, w, hgt){
+  const n=Math.min(RANGE,b.val.length);
+  const V=b.val.slice(-n), SH=b.short.slice(-n), R=b.ratio.slice(-n);
+  const L=44, RG=44;
+  const hiV=Math.max(...V)*1.05;
+  let loR=Math.min(...R), hiR=Math.max(...R);
+  const pd=(hiR-loR)*.35||1; loR-=pd; hiR+=pd;
+  const X=i=>L+i/(n-1)*(w-L-RG), YV=v=>hgt-22-v/hiV*(hgt-32);
+  const YR=v=>hgt-22-(v-loR)/(hiR-loR)*(hgt-32);
+  const bw=Math.max(1,(w-L-RG)/n*0.72);
+  let g="";
+  for(let t=0;t<=3;t++){const y=9+t*(hgt-31)/3;
+    g+='<line class="gl" x1="'+L+'" y1="'+y+'" x2="'+(w-RG)+'" y2="'+y+'"/>';}
+  const DS=DATA.dates.slice(-n);
+  for(let i=1;i<n;i++){
+    if(DS[i]&&DS[i-1]&&DS[i].slice(0,7)!==DS[i-1].slice(0,7)){
+      g+='<text class="axd" x="'+X(i).toFixed(0)+'" y="'+(hgt-3)
+        +'" text-anchor="middle">'+(+DS[i].slice(5,7))+'月</text>';}
+  }
+  V.forEach((v,i)=>{
+    const x=(X(i)-bw/2).toFixed(1);
+    g+='<rect x="'+x+'" y="'+YV(v).toFixed(1)+'" width="'+bw.toFixed(1)
+      +'" height="'+(hgt-22-YV(v)).toFixed(1)+'" fill="#3a4a5e"/>'
+      +'<rect x="'+x+'" y="'+YV(SH[i]).toFixed(1)+'" width="'+bw.toFixed(1)
+      +'" height="'+(hgt-22-YV(SH[i])).toFixed(1)+'" fill="#e8703a"/>';
+  });
+  g+='<path d="'+R.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+YR(v).toFixed(1)).join(" ")
+    +'" fill="none" stroke="#43c8e8" stroke-width="1.6"/>';
+  // 空売り比率の移動平均。日々のブレを均して傾きを見る
+  (b.ma||[]).forEach(m=>{
+    const V2=m.v.slice(-n);
+    g+='<path d="'+V2.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+YR(v).toFixed(1)).join(" ")
+      +'" fill="none" stroke="'+m.c+'" stroke-width="1" opacity=".85"/>';
+  });
+  const oku=v=>(v/100).toFixed(0)+"億";      // 百万円→億円
+  g+='<text class="ax" x="2" y="13">'+oku(hiV)+'</text>'
+    +'<text class="ax" x="2" y="'+(hgt-26)+'">0</text>'
+    +'<text class="ax" x="'+(w-RG+4)+'" y="13" style="fill:#43c8e8">'+hiR.toFixed(0)+'%</text>'
+    +'<text class="ax" x="'+(w-RG+4)+'" y="'+(hgt-26)+'" style="fill:#43c8e8">'
+    +loR.toFixed(0)+'%</text>'
+    +'<circle cx="'+(w-RG)+'" cy="'+YR(R[n-1])+'" r="2.6" fill="#43c8e8"/>'
+    +'<text class="ax" x="'+(w-RG+4)+'" y="'+(YR(R[n-1])+3)
+    +'" style="fill:#43c8e8;font-weight:700">'+R[n-1]+'%</text>';
+  return '<svg viewBox="0 0 '+w+' '+hgt+'">'+g+'</svg>';
+}
+
+const legend=ls=>'<div class="leg">'+ls.map(l=>
+  '<span><i style="background:'+l.c+'"></i>'+l.n+'</span>').join("")+'</div>';
+
+// 折りたたみ。見出しに現在値と前日比を出しておき、開かなくても状態が分かるようにする
+function setFold(el, on){
+  const body=document.getElementById("fb-"+el.dataset.f);
+  body.classList.toggle("open", on);
+  el.classList.toggle("open", on);
+  el.querySelector(".ar").textContent = on ? "▲ 閉じる" : "▼ 開く";
+}
+
+function foldBlock(id, title, now, chg, inv, body, unit){
+  const u = unit||"%";
+  return '<div class="fold" data-f="'+id+'"><span class="t"><b>'+title+'</b>'
+    + '<span class="n"><span class="v '+cls(now,inv)+'">'+sign(now)+u+'</span>'
+    + '　前日比 <span class="'+cls(chg,inv)+'">'+sign(chg)+u+'</span></span></span>'
+    + '<span class="ar">▼ 開く</span></div>'
+    + '<div class="foldbody" id="fb-'+id+'">'+body+'</div>';
+}
+
+function chBlock(c, back){
+  // back=true のときはチャートをタップすると上の四角へ戻る（業種別タブ）
+  // 見出しは 名前 → 日付 → 現在値 → 前日比 → 20SMA乖離 → %TIL の順に1行で並べる
+  let h='<div class="ch'+(SEL===c.key?' on':'')+'" id="ch-'+c.key+'"'
+    +(back?' data-back="'+c.key+'" style="cursor:pointer"':'')+'>'
+    +'<div class="chhd"><b>'+nameHtml(c)+'</b>'
+    +asofHtml(c)
+    +'<span class="now">'+fmt(c.now,c.unit)+'</span>'
+    +'<span class="cap">'+chgHtml(c)+'</span>'
+    +(c.dev!==null&&c.dev!==undefined
+       ?'<span class="cap">20SMA乖離 </span><span class="num '+cls(c.dev,c.inv)+'">'
+        +sign(c.dev)+'%</span>':'')
+    +(c.pctl!==null&&c.pctl!==undefined
+       ?'<span class="num" style="color:var(--dim2)">'+c.pctl+'</span>'
+        +'<span class="cap" style="margin-left:-4px">%TIL</span>':'')+'</div>'
+    +(c.bar?'<div class="leg">'
+       +'<span><i style="background:#3a4a5e;height:7px"></i>売買代金</span>'
+       +'<span><i style="background:#e8703a;height:7px"></i>空売り代金</span>'
+       +'<span><i style="background:#43c8e8"></i>空売り比率（右軸）</span>'
+       +'<span><i style="background:#f2c94c"></i>5MA</span>'
+       +'<span><i style="background:#3ddc84"></i>10MA</span>'
+       +'<span><i style="background:#a78bfa"></i>20MA</span></div>'
+       +chartBar(c.bar,340,112)
+     : legend(c.lines)+chart(c.lines,c.now,340,106,c.axis,c.zero))
+    +(c.note?'<div class="nt">'+c.note+'</div>':'');
+  // 業種の下段その1: 売買代金と空売り（JPXの日次PDFから）
+  if(c.bar2){
+    h+=foldBlock(c.key+"-bar","売買代金と空売り",c.bar2.now,c.bar2.chg,true,
+      '<div class="leg"><span><i style="background:#3a4a5e;height:7px"></i>売買代金</span>'
+      +'<span><i style="background:#e8703a;height:7px"></i>空売り代金</span>'
+      +'<span><i style="background:#43c8e8"></i>空売り比率（右軸）</span>'
+      +'<span><i style="background:#f2c94c"></i>5MA</span>'
+      +'<span><i style="background:#3ddc84"></i>10MA</span>'
+      +'<span><i style="background:#a78bfa"></i>20MA</span></div>'
+      +chartBar(c.bar2,340,88));}
+  // 業種の下段その2: 空売り残高（機関）
+  if(c.zan){
+    const z=c.zan;
+    h+=foldBlock(c.key+"-zan",z.label,z.now,z.chg,z.inv,
+      legend(z.lines)+chart(z.lines,z.now,340,88,null,[])
+      +(z.note?'<div class="nt">'+z.note+'</div>':''));}
+  // 下段の小チャート（益回りのスプレッド／業種の機関損益率）
+  if(c.sub){
+    const b=c.sub;
+    const body=chart(b.lines,b.now,340,76,null,b.zero||[0])
+      +(b.note?'<div class="nt">'+b.note+'</div>':'');
+    // 業種（back=true）は折りたたみ、市場全体はそのまま出す
+    h += back
+      ? foldBlock(c.key+"-sub",b.label,b.now,b.chg,b.inv,body)
+      : '<div class="sub2"><div class="chhd"><b style="font-size:11.5px">'+b.label+'</b>'
+        +'<span class="now '+cls(b.now,b.inv)+'">'+sign(b.now)+'%</span>'
+        +'<span class="cap">前日比 </span><span class="num chg '+cls(b.chg,b.inv)+'">'
+        +sign(b.chg)+'%</span></div>'+body+'</div>';}
+  return h+'</div>';
+}
+function sectorBars(){
+  const mx=Math.max(...DATA.secbar.map(s=>Math.abs(s[1])));
+  return DATA.secbar.map(([n,v])=>{
+    const w=Math.abs(v)/mx*50,left=v>=0?50:50-w;
+    return '<div class="secrow"><span class="n">'+n+'</span>'
+      +'<span class="b"><i style="left:'+left+'%;width:'+w+'%;background:'
+      +(v>=0?"var(--up)":"var(--dn)")+'"></i></span>'
+      +'<span class="v '+(v>=0?"up":"dn")+'">'+sign(v)+'%</span></div>';}).join("");
+}
+function wallBars(){
+  const W=DATA.wall,mx=Math.max(...W.strikes.map(s=>Math.abs(s[1])));
+  return '<div style="position:relative"><div class="wallmid"></div>'
+    +W.strikes.slice().reverse().map(([st,oi])=>{
+      const w=Math.abs(oi)/mx*48,left=oi>=0?50:50-w;
+      const here=Math.abs(st-W.price)<=250;
+      return '<div class="wallrow'+(here?' here':'')+'">'
+        +'<span class="s">'+st.toLocaleString()+'</span>'
+        +'<span class="b"><i style="left:'+left+'%;width:'+w+'%;background:'
+        +(oi>=0?"var(--dn)":"var(--up)")+'"></i></span></div>';}).join("")+'</div>'
+    +'<div class="nt">日経平均 '+W.price.toLocaleString()+'円（青い行）。'
+    +'<span class="dn">右＝コールが厚い＝上値の重し</span> / '
+    +'<span class="up">左＝プットが厚い＝下支え</span></div>';
+}
+function draw(){
+  // 基準はTOPIXの日付。ここからの遅れを各項目に出す
+  DATA.layers.forEach(L=>L.cards.forEach(c=>{
+    if(c.key===DATA.baseKey && c.asof) BASE_DATE=c.asof; }));
+  drawGrid(); drawSecGrid();
+  let h="";
+  DATA.layers.forEach(L=>{
+    h+='<div class="lay"><div class="layhd">'+L.name+'</div>';
+    L.cards.forEach(c=>h+=chBlock(c,true));
+    if(L.id==="mkt"){
+      h+='<div class="ch"><div class="chhd"><b>業種別 前日比</b></div>'
+        +'<div class="nt" style="margin:0 0 5px">プラスの大きい順・全業種'
+        +'（推移は「業種別」タブ）</div>'+sectorBars()+'</div>';}
+    h+='</div>';});
+  h+='<div class="lay"><div class="layhd">節目</div>'
+    +'<div class="ch"><div class="chhd"><b>日経225オプション 建玉の壁</b></div>'
+    +'<div class="nt" style="margin:0 0 5px">当日の断面（推移ではない）・'
+    +'日経平均の±15%の範囲</div>'
+    +wallBars()+'</div></div>';
+  document.getElementById("charts").innerHTML=h;
+  // チャートをタップしたら上の「今日の数値」へ戻る。
+  // 業種別の棒グラフや建玉など、対応する四角が無いものは一番上へ
+  document.querySelectorAll("#charts .ch").forEach(el=>el.onclick=()=>{
+    const k=el.dataset.back;
+    if(k){ SEL=k; drawGrid();
+           const t=document.getElementById("cd-"+k);
+           if(t){ t.scrollIntoView({behavior:"smooth",block:"center"}); return; } }
+    scrollTo({top:0,behavior:"smooth"});
+  });
+  document.getElementById("secharts").innerHTML=
+    '<div class="lay">'+DATA.seccards.map(c=>
+      '<div class="secbox'+(SEL===c.key?' on':'')+'" id="sb-'+c.key+'" data-k="'+c.key+'">'
+      +chBlock(c,true)+'</div>').join("")+'</div>';
+
+  // 折りたたみ1つだけを開閉する（見出しをタップしたとき）
+  document.querySelectorAll("#secharts .fold").forEach(el=>el.onclick=ev=>{
+    ev.stopPropagation();
+    setFold(el, !document.getElementById("fb-"+el.dataset.f).classList.contains("open"));
+  });
+
+  // 枠をタップ: 閉じていれば全部開く / 開いていれば上の四角へ戻る。
+  // 「開く」と「戻る」を同じ場所に置くと、見たあとそのまま一覧へ帰れる
+  document.querySelectorAll("#secharts .secbox").forEach(box=>box.onclick=()=>{
+    const folds=[...box.querySelectorAll(".fold")];
+    const allOpen=folds.length>0 && folds.every(f=>
+      document.getElementById("fb-"+f.dataset.f).classList.contains("open"));
+    if(allOpen){
+      folds.forEach(f=>setFold(f,false));      // 畳んでから戻る
+      const k=box.dataset.k;
+      SEL=k; drawSecGrid();
+      const t=document.getElementById("cd-"+k);
+      if(t) t.scrollIntoView({behavior:"smooth",block:"center"});
+    }else{
+      folds.forEach(f=>setFold(f,true));
+      box.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+  });
+  // 業種別: チャートをタップしたら上の四角へ戻る（往復できるように）
+
+}
+document.querySelectorAll(".ctl .pill").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".ctl .pill").forEach(x=>x.classList.remove("on"));
+  document.querySelectorAll('.ctl .pill[data-r="'+b.dataset.r+'"]')
+    .forEach(x=>x.classList.add("on"));
+  RANGE=+b.dataset.r; draw();});
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); TAB=b.dataset.t;
+  document.getElementById("main").style.display=TAB==="main"?"":"none";
+  document.getElementById("sec").style.display=TAB==="sec"?"":"none";
+  scrollTo(0,0);});
+// ---- 起動 ----
+(async () => {
+  const st = document.getElementById("status");
+  try{
+    const r = await fetch(DATA_URL + "?t=" + Date.now(), {cache: "no-store"});
+    if(!r.ok) throw new Error(DATA_URL + " が読めません (HTTP " + r.status + ")");
+    DATA = await r.json();
+  }catch(e){
+    st.innerHTML = '<b>読み込みに失敗しました</b><br>' + e.message
+      + '<br>Colabの Cell 28 を実行して regime.json を公開してください。'
+      + '<br>ローカルで開いている場合は file:// では fetch が使えません。';
+    st.style.display = "block";
+    return;
+  }
+  st.style.display = "none";
+  document.querySelector("h1 small").textContent =
+    "今日そもそも買っていい日か ・ " + DATA.asof;
+  draw();
+})();
+</script></body></html>
