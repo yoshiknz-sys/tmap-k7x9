@@ -343,7 +343,7 @@ function foldBlock(id, title, now, chg, inv, body, unit){
     + '<div class="foldbody" id="fb-'+id+'">'+body+'</div>';
 }
 
-function chBlock(c, back){
+function chBlock(c, back, useFold){
   // back=true のときはチャートをタップすると上の四角へ戻る（業種別タブ）
   // 見出しは 名前 → 日付 → 現在値 → 前日比 → 20SMA乖離 → %TIL の順に1行で並べる
   let h='<div class="ch'+(SEL===c.key?' on':'')+'" id="ch-'+c.key+'"'
@@ -369,7 +369,7 @@ function chBlock(c, back){
      : legend(c.lines)+chart(c.lines,c.now,340,106,c.axis,c.zero))
     +(c.note?'<div class="nt">'+c.note+'</div>':'');
   // 業種の下段その1: 売買代金と空売り（JPXの日次PDFから）
-  if(c.bar2){
+  if(c.bar2 && useFold){
     h+=foldBlock(c.key+"-bar","売買代金と空売り",c.bar2.now,c.bar2.chg,true,
       '<div class="leg"><span><i style="background:#3a4a5e;height:7px"></i>売買代金</span>'
       +'<span><i style="background:#e8703a;height:7px"></i>空売り代金</span>'
@@ -379,7 +379,7 @@ function chBlock(c, back){
       +'<span><i style="background:#a78bfa"></i>20MA</span></div>'
       +chartBar(c.bar2,340,88));}
   // 業種の下段その2: 空売り残高（機関）
-  if(c.zan){
+  if(c.zan && useFold){
     const z=c.zan;
     h+=foldBlock(c.key+"-zan",z.label,z.now,z.chg,z.inv,
       legend(z.lines)+chart(z.lines,z.now,340,88,null,[])
@@ -389,8 +389,9 @@ function chBlock(c, back){
     const b=c.sub;
     const body=chart(b.lines,b.now,340,76,null,b.zero||[0])
       +(b.note?'<div class="nt">'+b.note+'</div>':'');
-    // 業種（back=true）は折りたたみ、市場全体はそのまま出す
-    h += back
+    // 業種は折りたたみ、市場全体はそのまま出す。
+    // back（タップで四角へ戻る）とは別の判断なので引数を分けている
+    h += useFold
       ? foldBlock(c.key+"-sub",b.label,b.now,b.chg,b.inv,body)
       : '<div class="sub2"><div class="chhd"><b style="font-size:11.5px">'+b.label+'</b>'
         +'<span class="now '+cls(b.now,b.inv)+'">'+sign(b.now)+'%</span>'
@@ -429,7 +430,7 @@ function draw(){
   let h="";
   DATA.layers.forEach(L=>{
     h+='<div class="lay"><div class="layhd">'+L.name+'</div>';
-    L.cards.forEach(c=>h+=chBlock(c,true));
+    L.cards.forEach(c=>h+=chBlock(c,true,false));   // 市場は畳まない
     if(L.id==="mkt"){
       h+='<div class="ch"><div class="chhd"><b>業種別 前日比</b></div>'
         +'<div class="nt" style="margin:0 0 5px">プラスの大きい順・全業種'
@@ -453,7 +454,7 @@ function draw(){
   document.getElementById("secharts").innerHTML=
     '<div class="lay">'+DATA.seccards.map(c=>
       '<div class="secbox'+(SEL===c.key?' on':'')+'" id="sb-'+c.key+'" data-k="'+c.key+'">'
-      +chBlock(c,true)+'</div>').join("")+'</div>';
+      +chBlock(c,true,true)+'</div>').join("")+'</div>';
 
   // 折りたたみ1つだけを開閉する（見出しをタップしたとき）
   document.querySelectorAll("#secharts .fold").forEach(el=>el.onclick=ev=>{
@@ -501,7 +502,7 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
     DATA = await r.json();
   }catch(e){
     st.innerHTML = '<b>読み込みに失敗しました</b><br>' + e.message
-      + '<br>Colabの Cell 28 を実行して regime.json を公開してください。'
+      + '<br>Colabの Cell 28〜29 を実行して regime.json を公開してください。'
       + '<br>ローカルで開いている場合は file:// では fetch が使えません。';
     st.style.display = "block";
     return;
