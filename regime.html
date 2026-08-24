@@ -117,7 +117,7 @@ svg{display:block;width:100%;height:auto}
 .wallmid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#46556a}
 </style></head><body>
 <header><div class="hrow">
-  <h1>市場レジーム <span class="ver">UI v1.1</span><small>今日そもそも買っていい日か ・ 2026-08-18</small></h1>
+  <h1>市場レジーム <span class="ver">UI v1.2</span><small>今日そもそも買っていい日か ・ 2026-08-18</small></h1>
   <a class="navbtn" href="theme_map.html">テーマ</a>
   <a class="navbtn" href="squeeze_map.html">需給</a>
 </div></header>
@@ -131,7 +131,7 @@ svg{display:block;width:100%;height:auto}
     <div class="sumhd"><b>今日の数値</b>（タップでチャートへ）<br>
       <b>前日比</b>＝差分と騰落率／<b>20SMA乖離</b>＝20日平均から何%離れているか／
       <b>%TIL</b>＝過去1年でどの位置か（100%が最高値）／
-      各項目の右上はそのデータの日付</div>
+      各項目の右上はそのデータの日付<br><b>色は数字の向きだけ</b>（緑＝上昇 / 赤＝下落）。良し悪しの解釈は入れていない</div>
     <div class="grid" id="grid"></div>
   </div>
   <div class="ctl"><span class="lb">期間</span>
@@ -159,7 +159,10 @@ svg{display:block;width:100%;height:auto}
 const DATA_URL = "regime.json";
 let DATA=null, RANGE=63, SEL=null, TAB="main";
 const fmt=(v,u)=>(Math.abs(v)>=1000?Math.round(v).toLocaleString():(+v).toFixed(2))+(u||"");
-function cls(v,inv){if(Math.abs(v)<1e-9)return"flat";return (v>0)!==!!inv?"up":"dn";}
+// 色は「緑＝上昇 / 赤＝下落」で統一（2026-08-24）。
+// 指標ごとに良し悪しを色に込めると、同じ「空売りが増える」が
+// 場所によって緑と赤に分かれる。色は数字の向きだけを示す
+function cls(v,inv){if(Math.abs(v)<1e-9)return"flat";return v>0?"up":"dn";}
 const sign=v=>(v>0?"+":"")+(+v).toFixed(2);
 
 // データ日付の表示。基準（TOPIX）との差を営業日で数えて「?日遅れ」を付ける。
