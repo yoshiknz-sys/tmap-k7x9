@@ -107,6 +107,14 @@ select{
 .chart-body{padding:6px}
 svg{display:block;width:100%;height:auto}
 
+/* 画面の行き来(U5)。ヘッダーの中に混ぜると
+   flexのレイアウトに埋もれて見えなくなるので、外に独立した行で出す */
+#navrow{display:flex; gap:8px; padding:10px 14px 0; align-items:center}
+#navrow .lb{font-size:11px; color:var(--mist2); margin-right:2px}
+#navrow a{flex:none; border:1px solid var(--ink600); background:var(--ink800);
+  color:var(--mist); border-radius:999px; padding:6px 14px; font-size:12.5px;
+  text-decoration:none; white-space:nowrap}
+#navrow a:active{background:var(--ink700)}
 /* テーママップへの往復リンク(U4)。向こうの「需給」ボタンと同じ見た目 */
 .det-code a.tm{display:inline-block; font-size:10.5px; color:#fff;
   text-decoration:none; background:#4a5766; border-radius:5px;
@@ -247,7 +255,7 @@ dt[data-tip]{border-bottom-style:dashed}
     </div>
     <div class="hd-meta">
       <span class="badge">機関＋個人</span>
-      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.11</span>
+      <span class="badge" style="border-color:var(--midori);color:var(--midori)">UI v2.13</span>
       <div class="meta-item">データ日<b class="mono" id="m-calc">—</b></div>
       <div class="meta-item">機関データ<b class="mono" id="m-inst">—</b></div>
       <div class="meta-item">生成日<b class="mono" id="m-gen">—</b></div>
@@ -255,6 +263,10 @@ dt[data-tip]{border-bottom-style:dashed}
     </div>
   </div>
 </header>
+<div id="navrow"><span class="lb">画面</span>
+  <a href="regime.html">地合い</a>
+  <a href="theme_map.html">テーマ</a>
+</div>
 
 <!-- 市場レジーム帯：常時表示 -->
 <div class="regime" id="regime"></div>
