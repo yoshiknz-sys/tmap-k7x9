@@ -117,7 +117,7 @@ svg{display:block;width:100%;height:auto}
 .wallmid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#46556a}
 </style></head><body>
 <header><div class="hrow">
-  <h1>市場レジーム <span class="ver">UI v1.2</span><small>今日そもそも買っていい日か ・ 2026-08-18</small></h1>
+  <h1>市場レジーム <span class="ver">UI v1.3</span><small>今日そもそも買っていい日か ・ 2026-08-18</small></h1>
   <a class="navbtn" href="theme_map.html">テーマ</a>
   <a class="navbtn" href="squeeze_map.html">需給</a>
 </div></header>
@@ -131,7 +131,7 @@ svg{display:block;width:100%;height:auto}
     <div class="sumhd"><b>今日の数値</b>（タップでチャートへ）<br>
       <b>前日比</b>＝差分と騰落率／<b>20SMA乖離</b>＝20日平均から何%離れているか／
       <b>%TIL</b>＝過去1年でどの位置か（100%が最高値）／
-      各項目の右上はそのデータの日付<br><b>色は数字の向きだけ</b>（緑＝上昇 / 赤＝下落）。良し悪しの解釈は入れていない</div>
+      各項目の右上は<b>そのデータの最新日</b>（米国と日本で1日ずれる）<br><b>色は数字の向きだけ</b>（緑＝上昇 / 赤＝下落）。良し悪しの解釈は入れていない</div>
     <div class="grid" id="grid"></div>
   </div>
   <div class="ctl"><span class="lb">期間</span>
@@ -242,7 +242,8 @@ function chart(lines,now,w,hgt,axis,zero){
   const cut=lines.map(l=>l.v.slice(-n));
   let lo,hi;
   if(axis){lo=axis[0];hi=axis[1];}
-  else{lo=Math.min(...cut.flat());hi=Math.max(...cut.flat());
+  else{const fv=cut.flat().filter(x=>x!==null&&x!==undefined&&x===x);
+       lo=Math.min(...fv);hi=Math.max(...fv);
        const p=(hi-lo)*.12||1;lo-=p;hi+=p;}
   const L=40,R=58;
   const X=i=>L+i/(n-1)*(w-L-R), Y=v=>hgt-22-(v-lo)/(hi-lo)*(hgt-32);
@@ -268,7 +269,15 @@ function chart(lines,now,w,hgt,axis,zero){
       +'" text-anchor="middle">'+(+DS[i].slice(5,7))+'月</text>';
   });
   cut.forEach((v,si)=>{
-    const d=v.map((y,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1)).join(" ");
+    // データが無い日は点を打たない。線は前後をつないで続ける。
+    // 日本の系列は米国だけ開いた日が空き、その逆もある
+    let d="", pen=false;
+    v.forEach((y,i)=>{
+      if(y===null||y===undefined||y!==y) return;
+      d += (pen?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1)+" ";
+      pen=true;
+    });
+    if(!d) return;
     g+='<path d="'+d+'" fill="none" stroke="'+lines[si].c+'" stroke-width="'
       +(lines[si].w||1)+'" opacity="'+(si?.75:1)+'"/>';});
   const yv=Y(Math.max(lo,Math.min(hi,now)));
@@ -283,9 +292,11 @@ function chart(lines,now,w,hgt,axis,zero){
 function chartBar(b, w, hgt){
   const n=Math.min(RANGE,b.val.length);
   const V=b.val.slice(-n), SH=b.short.slice(-n), R=b.ratio.slice(-n);
-  const L=44, RG=44;
-  const hiV=Math.max(...V)*1.05;
-  let loR=Math.min(...R), hiR=Math.max(...R);
+  // 余白は折れ線チャートと同じにする。違うと縦のラインが揃わない
+  const L=40, RG=58;
+  const _f=a=>a.filter(x=>x!==null&&x!==undefined&&x===x);
+  const hiV=Math.max(..._f(V))*1.05;
+  let loR=Math.min(..._f(R)), hiR=Math.max(..._f(R));
   const pd=(hiR-loR)*.35||1; loR-=pd; hiR+=pd;
   const X=i=>L+i/(n-1)*(w-L-RG), YV=v=>hgt-22-v/hiV*(hgt-32);
   const YR=v=>hgt-22-(v-loR)/(hiR-loR)*(hgt-32);
@@ -300,19 +311,25 @@ function chartBar(b, w, hgt){
         +'" text-anchor="middle">'+(+DS[i].slice(5,7))+'月</text>';}
   }
   V.forEach((v,i)=>{
+    if(v===null||v===undefined||v!==v) return;
     const x=(X(i)-bw/2).toFixed(1);
     g+='<rect x="'+x+'" y="'+YV(v).toFixed(1)+'" width="'+bw.toFixed(1)
       +'" height="'+(hgt-22-YV(v)).toFixed(1)+'" fill="#3a4a5e"/>'
       +'<rect x="'+x+'" y="'+YV(SH[i]).toFixed(1)+'" width="'+bw.toFixed(1)
       +'" height="'+(hgt-22-YV(SH[i])).toFixed(1)+'" fill="#e8703a"/>';
   });
-  g+='<path d="'+R.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+YR(v).toFixed(1)).join(" ")
-    +'" fill="none" stroke="#43c8e8" stroke-width="1.6"/>';
+  let rd="", rp=false;
+  R.forEach((v,i)=>{ if(v===null||v===undefined||v!==v) return;
+    rd += (rp?"L":"M")+X(i).toFixed(1)+" "+YR(v).toFixed(1)+" "; rp=true; });
+  g+='<path d="'+rd+'" fill="none" stroke="#43c8e8" stroke-width="1.6"/>';
   // 空売り比率の移動平均。日々のブレを均して傾きを見る
   (b.ma||[]).forEach(m=>{
     const V2=m.v.slice(-n);
-    g+='<path d="'+V2.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+YR(v).toFixed(1)).join(" ")
-      +'" fill="none" stroke="'+m.c+'" stroke-width="1" opacity=".85"/>';
+    let md="", mp=false;
+    V2.forEach((v,i)=>{ if(v===null||v===undefined||v!==v) return;
+      md += (mp?"L":"M")+X(i).toFixed(1)+" "+YR(v).toFixed(1)+" "; mp=true; });
+    if(md) g+='<path d="'+md+'" fill="none" stroke="'+m.c
+      +'" stroke-width="1" opacity=".85"/>';
   });
   const oku=v=>(v/100).toFixed(0)+"億";      // 百万円→億円
   g+='<text class="ax" x="2" y="13">'+oku(hiV)+'</text>'
@@ -497,7 +514,6 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
   document.getElementById("main").style.display=TAB==="main"?"":"none";
   document.getElementById("sec").style.display=TAB==="sec"?"":"none";
   scrollTo(0,0);});
-// ---- 起動 ----
 (async () => {
   const st = document.getElementById("status");
   try{
@@ -508,8 +524,7 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
     st.innerHTML = '<b>読み込みに失敗しました</b><br>' + e.message
       + '<br>Colabの Cell 28〜29 を実行して regime.json を公開してください。'
       + '<br>ローカルで開いている場合は file:// では fetch が使えません。';
-    st.style.display = "block";
-    return;
+    st.style.display = "block"; return;
   }
   st.style.display = "none";
   document.querySelector("h1 small").textContent =
