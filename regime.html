@@ -117,7 +117,7 @@ svg{display:block;width:100%;height:auto}
 .wallmid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#46556a}
 </style></head><body>
 <header><div class="hrow">
-  <h1>市場レジーム <span class="ver">UI v1.3</span><small>今日そもそも買っていい日か ・ 2026-08-18</small></h1>
+  <h1>市場レジーム <span class="ver">UI v1.4</span><small>今日そもそも買っていい日か ・ 2026-08-18</small></h1>
   <a class="navbtn" href="theme_map.html">テーマ</a>
   <a class="navbtn" href="squeeze_map.html">需給</a>
 </div></header>
@@ -449,6 +449,7 @@ function draw(){
   drawGrid(); drawSecGrid();
   let h="";
   DATA.layers.forEach(L=>{
+    if(L.id==="setu") return;   // 節目は下でまとめて描く
     h+='<div class="lay"><div class="layhd">'+L.name+'</div>';
     L.cards.forEach(c=>h+=chBlock(c,true,false));   // 市場は畳まない
     if(L.id==="mkt"){
@@ -456,8 +457,10 @@ function draw(){
         +'<div class="nt" style="margin:0 0 5px">プラスの大きい順・全業種'
         +'（推移は「業種別」タブ）</div>'+sectorBars()+'</div>';}
     h+='</div>';});
-  h+='<div class="lay"><div class="layhd">節目</div>'
-    +'<div class="ch"><div class="chhd"><b>日経225オプション 建玉の壁</b></div>'
+  h+='<div class="lay"><div class="layhd">節目</div>';
+  // 節目層のカード（プットコールレシオ）。建玉の壁より上に出す
+  (DATA.layers.find(L=>L.id==="setu")||{cards:[]}).cards.forEach(c=>h+=chBlock(c,true,false));
+  h+='<div class="ch"><div class="chhd"><b>日経225オプション 建玉の壁</b></div>'
     +'<div class="nt" style="margin:0 0 5px">当日の断面（推移ではない）・'
     +'日経平均の±15%の範囲</div>'
     +wallBars()+'</div></div>';
